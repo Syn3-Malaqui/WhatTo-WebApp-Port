@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatTo WebApp</title>
+    <title>WhatTo - Note Taking App</title>
+    <link rel="icon" type="image/png" href="assets/Logo.svg">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -56,20 +57,29 @@
         border: 2px dashed #3b82f6 !important;
         background-color: rgba(59, 130, 246, 0.05) !important;
       }
+
+      #settings-dropdown {
+        opacity: 0;
+        transform: scale(0.95) translateY(-10px);
+        transition: all 0.2s ease-out;
+        pointer-events: none;
+      }
+
+      #settings-dropdown.show {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        pointer-events: auto;
+      }
     </style>
 </head>
 <body class="font-sans bg-gray-100 text-gray-900 m-0 p-0 min-h-screen flex items-center justify-center">
+    <img src="assets/header.svg" alt="WhatTo Logo" class="h-8 cursor-pointer absolute top-4 left-4" id="header-logo">
     <div class="app-container" id="drop-zone">
         <div class="content-area">
             <div id="note-title-area" class="mb-2">
                 <button id="title-btn" class="w-full text-2xl font-bold text-left text-gray-400 hover:text-gray-600 bg-transparent border-0 outline-none py-1 px-0 transition-colors">What to...</button>
                 <input id="title-input" type="text" class="w-full text-2xl font-medium bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-400 outline-none py-1 px-0 mt-0 hidden placeholder-gray-400" placeholder="What to..." />
                 <h2 id="note-title" class="text-2xl font-semibold mt-1 mb-1 hidden cursor-pointer"></h2>
-                <button id="settings-btn" class="btn btn-ghost btn-sm absolute top-4 right-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-                    </svg>
-                </button>
             </div>
             <div id="note-body" class="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-blue-400 outline-none text-base py-2 px-0 hidden" contenteditable="true" placeholder="Start writing your note..."></div>
         </div>
@@ -223,6 +233,33 @@
 
       // Handle Enter key for checkbox conversion and separator
       noteBody.addEventListener('keydown', function(e) {
+        // Shift+Enter in checkbox span: exit editing and move caret after checkbox
+        if (e.key === 'Enter' && e.shiftKey) {
+          const selection = window.getSelection();
+          if (!selection.rangeCount) return;
+          const range = selection.getRangeAt(0);
+          let node = range.startContainer;
+          // If inside a text node, get its parent
+          if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+          // Check if inside a checkbox span
+          if (node.tagName === 'SPAN' && node.parentNode.classList.contains('flex') && node.parentNode.classList.contains('items-center')) {
+            e.preventDefault();
+            const checkboxDiv = node.parentNode;
+            // Create a new line after the checkbox
+            const newLine = document.createElement('div');
+            newLine.innerHTML = '-&nbsp;';
+            checkboxDiv.after(newLine);
+            // Place caret in the new line
+            const cursorNode = document.createTextNode('');
+            newLine.appendChild(cursorNode);
+            const newRange = document.createRange();
+            newRange.setStart(cursorNode, 0);
+            newRange.setEnd(cursorNode, 0);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+            return;
+          }
+        }
         if (e.key === 'Enter') {
           e.preventDefault();
           const selection = window.getSelection();
@@ -270,14 +307,19 @@
             // Create checkbox
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.className = 'checkbox';
+            checkbox.className = 'checkbox checkbox-primary';
             
-            // Create text node with the content after '- '
-            const textContent = document.createTextNode(currentLine.substring(2));
+            // Get the text content after '- ' without duplicating
+            const text = currentLine.substring(2).trim();
+            
+            // Create span for text
+            const textSpan = document.createElement('span');
+            textSpan.className = 'ml-2';
+            textSpan.textContent = text;
             
             // Assemble the line
             checkboxContainer.appendChild(checkbox);
-            checkboxContainer.appendChild(textContent);
+            checkboxContainer.appendChild(textSpan);
             
             // Replace the current line with the checkbox
             if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -384,12 +426,17 @@
                               // Convert markdown checkbox to HTML
                               if (currentLine) {
                                   const paragraph = document.createElement('p');
-                                  paragraph.textContent = currentLine;
+                                  paragraph.textContent = currentLine.trim();
                                   noteBody.appendChild(paragraph);
                                   currentLine = '';
                               }
                               const checked = trimmedLine.includes('[x]');
-                              const text = trimmedLine.replace(/^-\s*\[[ x]\]\s*/, '');
+                              // Get the text from the next line if current line only has checkbox
+                              let text = trimmedLine.replace(/^-\s*\[[ x]\]\s*/, '');
+                              if (!text && index + 1 < lines.length) {
+                                  text = lines[index + 1].trim();
+                                  index++; // Skip the next line since we used its text
+                              }
                               const checkbox = document.createElement('div');
                               checkbox.className = 'flex items-center gap-2 my-1';
                               checkbox.innerHTML = `
@@ -397,6 +444,7 @@
                                   <span class="ml-2">${text}</span>
                               `;
                               noteBody.appendChild(checkbox);
+                              inParagraph = false;
                           } else if (trimmedLine === '---') {
                               // Convert markdown separator to HTML
                               if (currentLine) {
@@ -408,6 +456,7 @@
                               const separator = document.createElement('hr');
                               separator.className = 'separator';
                               noteBody.appendChild(separator);
+                              inParagraph = false;
                           } else if (trimmedLine) {
                               // Regular text
                               if (currentLine) {
@@ -444,7 +493,7 @@
     </script>
 
     <!-- Settings Dropdown -->
-    <div id="settings-dropdown" class="hidden absolute top-12 right-4 bg-white rounded-lg shadow-lg border border-gray-200 w-48 py-2 z-50">
+    <div id="settings-dropdown" class="hidden absolute bg-white rounded-lg shadow-lg border border-gray-200 w-48 py-2 z-50">
         <div class="px-4 py-2">
             <button id="export-markdown" class="w-full text-left px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -464,27 +513,52 @@
 
     <script>
         // Settings functionality
-        const settingsBtn = document.getElementById('settings-btn');
+        const headerLogo = document.getElementById('header-logo');
         const settingsDropdown = document.getElementById('settings-dropdown');
         const exportMarkdownBtn = document.getElementById('export-markdown');
         const importMarkdownInput = document.getElementById('import-markdown');
 
         // Toggle dropdown
-        settingsBtn.addEventListener('click', (e) => {
+        function toggleSettings(e) {
+            const isVisible = settingsDropdown.classList.contains('show');
+            
+            if (!isVisible) {
+                // Position the dropdown below the header logo
+                const rect = headerLogo.getBoundingClientRect();
+                settingsDropdown.style.top = `${rect.bottom + 8}px`;
+                settingsDropdown.style.left = `${rect.left}px`;
+                
+                // Show the dropdown with animation
+                settingsDropdown.classList.remove('hidden');
+                // Use requestAnimationFrame to ensure the transition works
+                requestAnimationFrame(() => {
+                    settingsDropdown.classList.add('show');
+                });
+            } else {
+                // Hide the dropdown with animation
+                settingsDropdown.classList.remove('show');
+                // Wait for animation to complete before hiding
+                setTimeout(() => {
+                    settingsDropdown.classList.add('hidden');
+                }, 200);
+            }
+        }
+
+        headerLogo.addEventListener('click', (e) => {
             e.stopPropagation();
-            settingsDropdown.classList.toggle('hidden');
+            toggleSettings(e);
         });
 
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
-            if (!settingsDropdown.contains(e.target) && !settingsBtn.contains(e.target)) {
-                settingsDropdown.classList.add('hidden');
+            if (!settingsDropdown.contains(e.target) && !headerLogo.contains(e.target)) {
+                if (settingsDropdown.classList.contains('show')) {
+                    settingsDropdown.classList.remove('show');
+                    setTimeout(() => {
+                        settingsDropdown.classList.add('hidden');
+                    }, 200);
+                }
             }
-        });
-
-        // Prevent dropdown from closing when clicking inside
-        settingsDropdown.addEventListener('click', (e) => {
-            e.stopPropagation();
         });
 
         exportMarkdownBtn.addEventListener('click', () => {
@@ -502,14 +576,39 @@
                 
                 if (node.nodeType === Node.ELEMENT_NODE) {
                     if (node.tagName === 'DIV') {
+                        // Checkbox line (already handled above)
+                        if (node.classList.contains('flex') && node.classList.contains('items-center') && node.classList.contains('gap-2')) {
+                            const input = node.querySelector('input[type="checkbox"]');
+                            const span = node.querySelector('span');
+                            if (input && span) {
+                                const isChecked = input.checked;
+                                const text = span.textContent.trim();
+                                return `- [${isChecked ? 'x' : ' '}] ${text}\n`;
+                            }
+                            // Fallback: process as normal div
+                            let content = '';
+                            for (let child of node.childNodes) {
+                                content += processNode(child);
+                            }
+                            return content;
+                        }
+                        // New line divs (created for spacing, e.g. with only '-\u00a0' or '- ')
+                        const text = node.textContent.replace(/\u00a0/g, ' ').trim();
+                        if (text === '-' || text === '') {
+                            // Treat as a blank line
+                            return '\n';
+                        }
+                        // Otherwise, process children
                         let content = '';
                         for (let child of node.childNodes) {
                             content += processNode(child);
                         }
-                        return content + '\n';
+                        return content;
                     }
                     if (node.tagName === 'INPUT' && node.type === 'checkbox') {
-                        return `- [${node.checked ? 'x' : ' '}] `;
+                        const text = node.nextSibling?.textContent || '';
+                        const isChecked = node.checked;
+                        return `- [${isChecked ? 'x' : ' '}] ${text}`;
                     }
                     if (node.tagName === 'HR') {
                         return '\n---\n\n';
@@ -542,6 +641,14 @@
             for (let node of noteBody.childNodes) {
                 markdown += processNode(node);
             }
+
+            // Trim extra spaces and normalize line endings
+            markdown = markdown
+                .replace(/\n{3,}/g, '\n\n')  // Replace 3 or more newlines with 2
+                .replace(/\s+$/gm, '')        // Trim trailing spaces on each line
+                .replace(/^\s+/gm, '')        // Trim leading spaces on each line
+                .replace(/([^\n])\n([^\n])/g, '$1\n$2')  // Ensure single newline between lines
+                .trim();                      // Trim the entire string
 
             // Create and download file
             const blob = new Blob([markdown], { type: 'text/markdown' });
@@ -578,7 +685,7 @@
                     
                     if (trimmedLine.startsWith('# ')) {
                         // Set title
-                        noteTitle.textContent = trimmedLine.substring(2);
+                        noteTitle.textContent = trimmedLine.substring(2).trim();
                         noteTitle.classList.remove('hidden');
                         titleBtn.classList.add('hidden');
                         titleInput.classList.add('hidden');
@@ -587,24 +694,29 @@
                         // Add heading
                         if (currentLine) {
                             const paragraph = document.createElement('p');
-                            paragraph.textContent = currentLine;
+                            paragraph.textContent = currentLine.trim();
                             noteBody.appendChild(paragraph);
                             currentLine = '';
                         }
                         const heading = document.createElement('h3');
                         heading.className = 'text-xl font-semibold mt-4 mb-2';
-                        heading.textContent = trimmedLine.substring(3);
+                        heading.textContent = trimmedLine.substring(3).trim();
                         noteBody.appendChild(heading);
                     } else if (trimmedLine.startsWith('- [')) {
                         // Convert markdown checkbox to HTML
                         if (currentLine) {
                             const paragraph = document.createElement('p');
-                            paragraph.textContent = currentLine;
+                            paragraph.textContent = currentLine.trim();
                             noteBody.appendChild(paragraph);
                             currentLine = '';
                         }
                         const checked = trimmedLine.includes('[x]');
-                        const text = trimmedLine.replace(/^-\s*\[[ x]\]\s*/, '');
+                        // Get the text from the next line if current line only has checkbox
+                        let text = trimmedLine.replace(/^-\s*\[[ x]\]\s*/, '');
+                        if (!text && index + 1 < lines.length) {
+                            text = lines[index + 1].trim();
+                            index++; // Skip the next line since we used its text
+                        }
                         const checkbox = document.createElement('div');
                         checkbox.className = 'flex items-center gap-2 my-1';
                         checkbox.innerHTML = `
@@ -612,29 +724,31 @@
                             <span class="ml-2">${text}</span>
                         `;
                         noteBody.appendChild(checkbox);
+                        inParagraph = false;
                     } else if (trimmedLine === '---') {
                         // Convert markdown separator to HTML
                         if (currentLine) {
                             const paragraph = document.createElement('p');
-                            paragraph.textContent = currentLine;
+                            paragraph.textContent = currentLine.trim();
                             noteBody.appendChild(paragraph);
                             currentLine = '';
                         }
                         const separator = document.createElement('hr');
                         separator.className = 'separator';
                         noteBody.appendChild(separator);
+                        inParagraph = false;
                     } else if (trimmedLine) {
                         // Regular text
-                        if (currentLine) {
-                            currentLine += ' ' + trimmedLine;
-                        } else {
+                        if (!inParagraph) {
                             currentLine = trimmedLine;
+                        } else {
+                            currentLine += ' ' + trimmedLine;
                         }
                         inParagraph = true;
                     } else if (currentLine) {
                         // Empty line after content - create paragraph
                         const paragraph = document.createElement('p');
-                        paragraph.textContent = currentLine;
+                        paragraph.textContent = currentLine.trim();
                         noteBody.appendChild(paragraph);
                         currentLine = '';
                         inParagraph = false;
@@ -648,7 +762,7 @@
                 // Add any remaining content
                 if (currentLine) {
                     const paragraph = document.createElement('p');
-                    paragraph.textContent = currentLine;
+                    paragraph.textContent = currentLine.trim();
                     noteBody.appendChild(paragraph);
                 }
 
