@@ -108,5 +108,4 @@ Feel free to open an issue or submit a pull request.
 
 ---
 
-> Made with ❤️ by [Your Name]
-
+> Made with ❤️ by Syn3
