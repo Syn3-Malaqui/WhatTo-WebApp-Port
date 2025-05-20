@@ -1,0 +1,1 @@
+console.log('WhatTo WebApp is running!'); 

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatTo WebApp</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Poppins', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/daisyui@4.10.2/dist/full.js"></script>
+</head>
+<body class="font-sans bg-gray-100 text-gray-900 m-0 p-0 min-h-screen">
+    <main class="max-w-2xl mx-auto px-4 pt-10">
+        <div id="note-title-area" class="mb-4">
+            <button id="title-btn" class="w-full text-2xl font-bold text-left text-gray-400 hover:text-gray-600 bg-transparent border-0 outline-none py-2 px-0 transition-colors">What to...</button>
+            <input id="title-input" type="text" class="w-full text-2xl font-medium bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-400 outline-none py-2 px-0 mt-0 hidden placeholder-gray-400" placeholder="What to..." />
+            <h2 id="note-title" class="text-2xl font-semibold mt-2 mb-2 hidden cursor-pointer"></h2>
+        </div>
+        <textarea id="note-body" class="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-blue-400 outline-none text-lg py-2 px-0 hidden placeholder-gray-400" placeholder="Start writing your note..." rows="1"></textarea>
+    </main>
+    <script src="script.js"></script>
+    <script>
+      const titleBtn = document.getElementById('title-btn');
+      const titleInput = document.getElementById('title-input');
+      const noteTitle = document.getElementById('note-title');
+      const noteBody = document.getElementById('note-body');
+
+      titleBtn.addEventListener('click', () => {
+        titleBtn.classList.add('hidden');
+        titleInput.classList.remove('hidden');
+        titleInput.focus();
+      });
+
+      titleInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && titleInput.value.trim() !== '') {
+          noteTitle.textContent = titleInput.value;
+          noteTitle.classList.remove('hidden');
+          titleInput.classList.add('hidden');
+          noteBody.classList.remove('hidden');
+          noteBody.focus();
+        }
+      });
+
+      // Re-edit title when clicked
+      noteTitle.addEventListener('click', () => {
+        titleInput.value = noteTitle.textContent;
+        noteTitle.classList.add('hidden');
+        titleInput.classList.remove('hidden');
+        titleInput.focus();
+      });
+
+      // Auto-resize textarea as user types
+      noteBody.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+      });
+
+      // Markdown-like system for checkmarks
+      noteBody.addEventListener('input', function(e) {
+        const text = this.value;
+        const lines = text.split('\n');
+        const lastLine = lines[lines.length - 1];
+        if (lastLine.trim() === '- ') {
+          lines[lines.length - 1] = '✓ ';
+          lines.push('list next item');
+          this.value = lines.join('\n');
+          this.selectionStart = this.selectionEnd = this.value.length - 'list next item'.length;
+        }
+      });
+    </script>
+</body>
+</html> 

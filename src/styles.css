@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+
+html, body {
+  font-family: 'Poppins', sans-serif;
+}
+
+#note-title, #title-input {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+}
+
+#note-body {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 400;
+  resize: none;
+  overflow: hidden;
+  /* Hide scrollbar for Webkit browsers */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
+}
+#note-body::-webkit-scrollbar {
+  display: none;
+} 
