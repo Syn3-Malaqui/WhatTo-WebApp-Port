@@ -2,7 +2,7 @@
 
 A modern, minimalist note-taking web application focused on clean design, intuitive UX, and Markdown compatibility. Built with HTML, CSS (Tailwind), and vanilla JavaScript.
 
-![screenshot](src/assets/Header.svg)
+![screenshot](src/assets/Header2.svg)
 
 ---
 
