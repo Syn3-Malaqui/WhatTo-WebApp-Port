@@ -19,24 +19,8 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/daisyui@4.10.2/dist/full.js"></script>
     <style>
-      @keyframes breathe {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0; }
-      }
-      
-      .cursor-bar {
-        position: absolute;
-        width: 3px;
-        height: 1.2em;
-        background-color: #10b981; /* emerald-500 */
-        border-radius: 1.5px;
-        pointer-events: none;
-        display: none; /* Hide by default */
-        animation: breathe 2s ease-in-out infinite;
-      }
-
       .separator {
-        display: block;
+        display: inline-block;
         width: 100%;
         height: 1px;
         background-color: #e5e7eb;
@@ -46,7 +30,6 @@
 
       #note-body {
         position: relative;
-        caret-color: transparent; /* Hide default cursor */
       }
 
       #note-body:focus {
@@ -87,37 +70,6 @@
       const titleInput = document.getElementById('title-input');
       const noteTitle = document.getElementById('note-title');
       const noteBody = document.getElementById('note-body');
-
-      // Create cursor bar element
-      const cursorBar = document.createElement('div');
-      cursorBar.className = 'cursor-bar';
-      document.body.appendChild(cursorBar);
-
-      // Function to update cursor position
-      function updateCursorPosition() {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        
-        // Position the cursor bar
-        cursorBar.style.left = `${rect.left}px`;
-        cursorBar.style.top = `${rect.top}px`;
-        cursorBar.style.height = `${rect.height}px`;
-        cursorBar.style.display = 'block';
-      }
-
-      // Update cursor position on various events
-      noteBody.addEventListener('input', updateCursorPosition);
-      noteBody.addEventListener('keyup', updateCursorPosition);
-      noteBody.addEventListener('click', updateCursorPosition);
-      noteBody.addEventListener('focus', () => {
-        if (noteBody.textContent.length > 0) {
-          updateCursorPosition();
-        }
-      });
-      noteBody.addEventListener('blur', () => cursorBar.style.display = 'none');
 
       titleBtn.addEventListener('click', () => {
         titleBtn.classList.add('hidden');
@@ -252,8 +204,9 @@
           // Check if the line is a separator
           if (currentLine.trim() === '---') {
             // Create separator
-            const separator = document.createElement('div');
+            const separator = document.createElement('hr');
             separator.className = 'separator';
+            separator.style.border = 'none';
             if (currentNode.nodeType === Node.TEXT_NODE) {
               currentNode.parentNode.replaceChild(separator, currentNode);
             } else {
