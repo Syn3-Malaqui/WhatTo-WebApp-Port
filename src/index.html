@@ -185,6 +185,32 @@
         }
       });
 
+      // Handle selection to convert separator back to ---
+      noteBody.addEventListener('mouseup', function(e) {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+        const selectedNode = range.startContainer;
+
+        // Check if the selected node is a separator
+        if (selectedNode.nodeName === 'HR' || selectedNode.parentNode?.nodeName === 'HR') {
+          const separator = selectedNode.nodeName === 'HR' ? selectedNode : selectedNode.parentNode;
+          
+          // Create text node with ---
+          const textNode = document.createTextNode('---');
+          
+          // Replace separator with ---
+          separator.parentNode.replaceChild(textNode, separator);
+          
+          // Select the --- text
+          range.setStart(textNode, 0);
+          range.setEnd(textNode, 3);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      });
+
       // Handle Enter key for checkbox conversion and separator
       noteBody.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
