@@ -21,12 +21,12 @@
 </head>
 <body class="font-sans bg-gray-100 text-gray-900 m-0 p-0 min-h-screen">
     <main class="max-w-2xl mx-auto px-4 pt-10">
-        <div id="note-title-area" class="mb-4">
-            <button id="title-btn" class="w-full text-2xl font-bold text-left text-gray-400 hover:text-gray-600 bg-transparent border-0 outline-none py-2 px-0 transition-colors">What to...</button>
-            <input id="title-input" type="text" class="w-full text-2xl font-medium bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-400 outline-none py-2 px-0 mt-0 hidden placeholder-gray-400" placeholder="What to..." />
-            <h2 id="note-title" class="text-2xl font-semibold mt-2 mb-2 hidden cursor-pointer"></h2>
+        <div id="note-title-area" class="mb-2">
+            <button id="title-btn" class="w-full text-3xl font-bold text-left text-gray-400 hover:text-gray-600 bg-transparent border-0 outline-none py-2 px-0 transition-colors">What to...</button>
+            <input id="title-input" type="text" class="w-full text-3xl font-medium bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-400 outline-none py-2 px-0 mt-0 hidden placeholder-gray-400" placeholder="What to..." />
+            <h2 id="note-title" class="text-3xl font-semibold mt-1 mb-1 hidden cursor-pointer"></h2>
         </div>
-        <textarea id="note-body" class="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-blue-400 outline-none text-lg py-2 px-0 hidden placeholder-gray-400" placeholder="Start writing your note..." rows="1"></textarea>
+        <div id="note-body" class="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-blue-400 outline-none text-lg py-2 px-0 hidden" contenteditable="true" placeholder="Start writing your note..."></div>
     </main>
     <script src="script.js"></script>
     <script>
@@ -43,6 +43,7 @@
 
       titleInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && titleInput.value.trim() !== '') {
+          e.preventDefault(); // Prevent default Enter behavior
           noteTitle.textContent = titleInput.value;
           noteTitle.classList.remove('hidden');
           titleInput.classList.add('hidden');
@@ -59,22 +60,154 @@
         titleInput.focus();
       });
 
-      // Auto-resize textarea as user types
-      noteBody.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
+      // Handle input for ghosting effect
+      noteBody.addEventListener('input', function(e) {
+        const selection = window.getSelection();
+        const range = selection.getRangeAt(0);
+        const currentNode = range.startContainer;
+        
+        // Get the current line's text
+        let currentLine = '';
+        if (currentNode.nodeType === Node.TEXT_NODE) {
+          currentLine = currentNode.textContent;
+        } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+          currentLine = currentNode.textContent;
+        }
+
+        // Remove any existing ghost lines
+        const allGhostLines = noteBody.querySelectorAll('.text-gray-300');
+        allGhostLines.forEach(line => line.remove());
+
+        // Only show ghost line if the current line starts with '- '
+        if (currentLine.trim().startsWith('- ')) {
+          // Check if there's already a ghost line after this one
+          const nextSibling = currentNode.nextSibling;
+          if (!nextSibling || !nextSibling.textContent.includes('- ')) {
+            // Create ghost line
+            const ghostLine = document.createElement('div');
+            ghostLine.className = 'text-gray-300';
+            ghostLine.textContent = '- ';
+            if (currentNode.nodeType === Node.TEXT_NODE) {
+              currentNode.parentNode.insertBefore(ghostLine, currentNode.nextSibling);
+            } else {
+              currentNode.after(ghostLine);
+            }
+          }
+        }
       });
 
-      // Markdown-like system for checkmarks
-      noteBody.addEventListener('input', function(e) {
-        const text = this.value;
-        const lines = text.split('\n');
-        const lastLine = lines[lines.length - 1];
-        if (lastLine.trim() === '- ') {
-          lines[lines.length - 1] = '✓ ';
-          lines.push('list next item');
-          this.value = lines.join('\n');
-          this.selectionStart = this.selectionEnd = this.value.length - 'list next item'.length;
+      // Handle blur to show ghosting effect
+      noteBody.addEventListener('blur', function(e) {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        
+        const range = selection.getRangeAt(0);
+        const currentNode = range.startContainer;
+        
+        // Get the current line's text
+        let currentLine = '';
+        if (currentNode.nodeType === Node.TEXT_NODE) {
+          currentLine = currentNode.textContent;
+        } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+          currentLine = currentNode.textContent;
+        }
+
+        // Check if the line starts with '- '
+        if (currentLine.trim().startsWith('- ')) {
+          // Remove any existing ghost lines
+          const allGhostLines = noteBody.querySelectorAll('.text-gray-300');
+          allGhostLines.forEach(line => line.remove());
+
+          // Check if there's already a ghost line after this one
+          const nextSibling = currentNode.nextSibling;
+          if (!nextSibling || !nextSibling.textContent.includes('- ')) {
+            // Create ghost line
+            const ghostLine = document.createElement('div');
+            ghostLine.className = 'text-gray-300';
+            ghostLine.textContent = '- ';
+            if (currentNode.nodeType === Node.TEXT_NODE) {
+              currentNode.parentNode.insertBefore(ghostLine, currentNode.nextSibling);
+            } else {
+              currentNode.after(ghostLine);
+            }
+          }
+        }
+      });
+
+      // Handle focus to remove ghosting effect
+      noteBody.addEventListener('focus', function(e) {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        
+        const range = selection.getRangeAt(0);
+        const currentNode = range.startContainer;
+        
+        // Remove ghost line if it exists
+        const nextSibling = currentNode.nextSibling;
+        if (nextSibling && nextSibling.textContent.includes('- ')) {
+          nextSibling.remove();
+        }
+      });
+
+      // Handle Enter key for checkbox conversion
+      noteBody.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const selection = window.getSelection();
+          const range = selection.getRangeAt(0);
+          const currentNode = range.startContainer;
+          
+          // Get the current line's text
+          let currentLine = '';
+          if (currentNode.nodeType === Node.TEXT_NODE) {
+            currentLine = currentNode.textContent;
+          } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+            currentLine = currentNode.textContent;
+          }
+
+          // Check if the line starts with '- '
+          if (currentLine.trim().startsWith('- ')) {
+            // Create checkbox container
+            const checkboxContainer = document.createElement('div');
+            checkboxContainer.className = 'flex items-center gap-2';
+            
+            // Create checkbox
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'checkbox';
+            
+            // Create text node with the content after '- '
+            const textContent = document.createTextNode(currentLine.substring(2));
+            
+            // Assemble the line
+            checkboxContainer.appendChild(checkbox);
+            checkboxContainer.appendChild(textContent);
+            
+            // Replace the current line with the checkbox
+            if (currentNode.nodeType === Node.TEXT_NODE) {
+              currentNode.parentNode.replaceChild(checkboxContainer, currentNode);
+            } else {
+              currentNode.replaceWith(checkboxContainer);
+            }
+            
+            // Create new line with dash and space
+            const newLine = document.createElement('div');
+            newLine.innerHTML = '-&nbsp;'; // Use non-breaking spaces to ensure proper spacing
+            checkboxContainer.after(newLine);
+            
+            // Create a new text node for the cursor position
+            const cursorNode = document.createTextNode('');
+            newLine.appendChild(cursorNode);
+            
+            // Set cursor position at the end of the new line
+            range.setStart(cursorNode, 0);
+            range.setEnd(cursorNode, 0);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          } else {
+            // If not a bullet point, just insert a new line
+            document.execCommand('insertLineBreak');
+          }
         }
       });
     </script>
