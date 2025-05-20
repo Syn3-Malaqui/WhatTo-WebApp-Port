@@ -51,15 +51,25 @@
         display: flex;
         flex-direction: column;
       }
+
+      .drag-over {
+        border: 2px dashed #3b82f6 !important;
+        background-color: rgba(59, 130, 246, 0.05) !important;
+      }
     </style>
 </head>
 <body class="font-sans bg-gray-100 text-gray-900 m-0 p-0 min-h-screen flex items-center justify-center">
-    <div class="app-container">
+    <div class="app-container" id="drop-zone">
         <div class="content-area">
             <div id="note-title-area" class="mb-2">
                 <button id="title-btn" class="w-full text-2xl font-bold text-left text-gray-400 hover:text-gray-600 bg-transparent border-0 outline-none py-1 px-0 transition-colors">What to...</button>
                 <input id="title-input" type="text" class="w-full text-2xl font-medium bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-400 outline-none py-1 px-0 mt-0 hidden placeholder-gray-400" placeholder="What to..." />
                 <h2 id="note-title" class="text-2xl font-semibold mt-1 mb-1 hidden cursor-pointer"></h2>
+                <button id="settings-btn" class="btn btn-ghost btn-sm absolute top-4 right-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                </button>
             </div>
             <div id="note-body" class="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-blue-400 outline-none text-base py-2 px-0 hidden" contenteditable="true" placeholder="Start writing your note..."></div>
         </div>
@@ -296,6 +306,357 @@
           }
         }
       });
+
+      // Drag and drop functionality
+      const dropZone = document.getElementById('drop-zone');
+      
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+          e.preventDefault();
+          e.stopPropagation();
+      }
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+          dropZone.addEventListener(eventName, highlight, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, unhighlight, false);
+      });
+
+      function highlight(e) {
+          dropZone.classList.add('drag-over');
+      }
+
+      function unhighlight(e) {
+          dropZone.classList.remove('drag-over');
+      }
+
+      dropZone.addEventListener('drop', handleDrop, false);
+
+      function handleDrop(e) {
+          const dt = e.dataTransfer;
+          const files = dt.files;
+
+          if (files.length > 0) {
+              const file = files[0];
+              if (file.type === 'text/markdown' || file.name.endsWith('.md')) {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                      const markdown = event.target.result;
+                      const lines = markdown.split('\n');
+                      
+                      // Clear current content
+                      noteBody.innerHTML = '';
+                      
+                      // Process each line
+                      let currentLine = '';
+                      let inParagraph = false;
+                      let isFirstLine = true;
+                      
+                      lines.forEach((line, index) => {
+                          // Trim the line but preserve empty lines
+                          const trimmedLine = line.trim();
+                          
+                          if (trimmedLine.startsWith('# ')) {
+                              // Set title
+                              noteTitle.textContent = trimmedLine.substring(2);
+                              noteTitle.classList.remove('hidden');
+                              titleBtn.classList.add('hidden');
+                              titleInput.classList.add('hidden');
+                              noteBody.classList.remove('hidden');
+                          } else if (trimmedLine.startsWith('## ')) {
+                              // Add heading
+                              if (currentLine) {
+                                  const paragraph = document.createElement('p');
+                                  paragraph.textContent = currentLine;
+                                  noteBody.appendChild(paragraph);
+                                  currentLine = '';
+                              }
+                              const heading = document.createElement('h3');
+                              heading.className = 'text-xl font-semibold mt-4 mb-2';
+                              heading.textContent = trimmedLine.substring(3);
+                              noteBody.appendChild(heading);
+                          } else if (trimmedLine.startsWith('- [')) {
+                              // Convert markdown checkbox to HTML
+                              if (currentLine) {
+                                  const paragraph = document.createElement('p');
+                                  paragraph.textContent = currentLine;
+                                  noteBody.appendChild(paragraph);
+                                  currentLine = '';
+                              }
+                              const checked = trimmedLine.includes('[x]');
+                              const text = trimmedLine.replace(/^-\s*\[[ x]\]\s*/, '');
+                              const checkbox = document.createElement('div');
+                              checkbox.className = 'flex items-center gap-2 my-1';
+                              checkbox.innerHTML = `
+                                  <input type="checkbox" class="checkbox checkbox-primary" ${checked ? 'checked' : ''}>
+                                  <span class="ml-2">${text}</span>
+                              `;
+                              noteBody.appendChild(checkbox);
+                          } else if (trimmedLine === '---') {
+                              // Convert markdown separator to HTML
+                              if (currentLine) {
+                                  const paragraph = document.createElement('p');
+                                  paragraph.textContent = currentLine;
+                                  noteBody.appendChild(paragraph);
+                                  currentLine = '';
+                              }
+                              const separator = document.createElement('hr');
+                              separator.className = 'separator';
+                              noteBody.appendChild(separator);
+                          } else if (trimmedLine) {
+                              // Regular text
+                              if (currentLine) {
+                                  currentLine += ' ' + trimmedLine;
+                              } else {
+                                  currentLine = trimmedLine;
+                              }
+                              inParagraph = true;
+                          } else if (currentLine) {
+                              // Empty line after content - create paragraph
+                              const paragraph = document.createElement('p');
+                              paragraph.textContent = currentLine;
+                              noteBody.appendChild(paragraph);
+                              currentLine = '';
+                              inParagraph = false;
+                          } else if (!inParagraph && !isFirstLine) {
+                              // Add extra line break for spacing, but not at the start
+                              noteBody.appendChild(document.createElement('br'));
+                          }
+                          isFirstLine = false;
+                      });
+
+                      // Add any remaining content
+                      if (currentLine) {
+                          const paragraph = document.createElement('p');
+                          paragraph.textContent = currentLine;
+                          noteBody.appendChild(paragraph);
+                      }
+                  };
+                  reader.readAsText(file);
+              }
+          }
+      }
+    </script>
+
+    <!-- Settings Dropdown -->
+    <div id="settings-dropdown" class="hidden absolute top-12 right-4 bg-white rounded-lg shadow-lg border border-gray-200 w-48 py-2 z-50">
+        <div class="px-4 py-2">
+            <button id="export-markdown" class="w-full text-left px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+                Export to Markdown
+            </button>
+            <label class="w-full text-left px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded flex items-center gap-2 cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                </svg>
+                Import from Markdown
+                <input type="file" id="import-markdown" accept=".md" class="hidden" />
+            </label>
+        </div>
+    </div>
+
+    <script>
+        // Settings functionality
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsDropdown = document.getElementById('settings-dropdown');
+        const exportMarkdownBtn = document.getElementById('export-markdown');
+        const importMarkdownInput = document.getElementById('import-markdown');
+
+        // Toggle dropdown
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsDropdown.classList.toggle('hidden');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!settingsDropdown.contains(e.target) && !settingsBtn.contains(e.target)) {
+                settingsDropdown.classList.add('hidden');
+            }
+        });
+
+        // Prevent dropdown from closing when clicking inside
+        settingsDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        exportMarkdownBtn.addEventListener('click', () => {
+            const title = noteTitle.textContent;
+            const content = noteBody.innerHTML;
+            
+            // Convert content to markdown while preserving structure
+            let markdown = `# ${title}\n\n`;
+            
+            // Process each node to preserve structure
+            const processNode = (node) => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return node.textContent;
+                }
+                
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.tagName === 'DIV') {
+                        let content = '';
+                        for (let child of node.childNodes) {
+                            content += processNode(child);
+                        }
+                        return content + '\n';
+                    }
+                    if (node.tagName === 'INPUT' && node.type === 'checkbox') {
+                        return `- [${node.checked ? 'x' : ' '}] `;
+                    }
+                    if (node.tagName === 'HR') {
+                        return '\n---\n\n';
+                    }
+                    if (node.tagName === 'BR') {
+                        return '\n';
+                    }
+                    if (node.tagName === 'SPAN') {
+                        return node.textContent;
+                    }
+                    if (node.tagName === 'P') {
+                        let content = '';
+                        for (let child of node.childNodes) {
+                            content += processNode(child);
+                        }
+                        return content + '\n\n';
+                    }
+                    if (node.tagName === 'H3') {
+                        let content = '';
+                        for (let child of node.childNodes) {
+                            content += processNode(child);
+                        }
+                        return `\n## ${content}\n\n`;
+                    }
+                }
+                return '';
+            };
+
+            // Process all nodes in the note body
+            for (let node of noteBody.childNodes) {
+                markdown += processNode(node);
+            }
+
+            // Create and download file
+            const blob = new Blob([markdown], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.toLowerCase().replace(/\s+/g, '-')}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        importMarkdownInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const markdown = event.target.result;
+                const lines = markdown.split('\n');
+                
+                // Clear current content
+                noteBody.innerHTML = '';
+                
+                // Process each line
+                let currentLine = '';
+                let inParagraph = false;
+                let isFirstLine = true;
+                
+                lines.forEach((line, index) => {
+                    // Trim the line but preserve empty lines
+                    const trimmedLine = line.trim();
+                    
+                    if (trimmedLine.startsWith('# ')) {
+                        // Set title
+                        noteTitle.textContent = trimmedLine.substring(2);
+                        noteTitle.classList.remove('hidden');
+                        titleBtn.classList.add('hidden');
+                        titleInput.classList.add('hidden');
+                        noteBody.classList.remove('hidden');
+                    } else if (trimmedLine.startsWith('## ')) {
+                        // Add heading
+                        if (currentLine) {
+                            const paragraph = document.createElement('p');
+                            paragraph.textContent = currentLine;
+                            noteBody.appendChild(paragraph);
+                            currentLine = '';
+                        }
+                        const heading = document.createElement('h3');
+                        heading.className = 'text-xl font-semibold mt-4 mb-2';
+                        heading.textContent = trimmedLine.substring(3);
+                        noteBody.appendChild(heading);
+                    } else if (trimmedLine.startsWith('- [')) {
+                        // Convert markdown checkbox to HTML
+                        if (currentLine) {
+                            const paragraph = document.createElement('p');
+                            paragraph.textContent = currentLine;
+                            noteBody.appendChild(paragraph);
+                            currentLine = '';
+                        }
+                        const checked = trimmedLine.includes('[x]');
+                        const text = trimmedLine.replace(/^-\s*\[[ x]\]\s*/, '');
+                        const checkbox = document.createElement('div');
+                        checkbox.className = 'flex items-center gap-2 my-1';
+                        checkbox.innerHTML = `
+                            <input type="checkbox" class="checkbox checkbox-primary" ${checked ? 'checked' : ''}>
+                            <span class="ml-2">${text}</span>
+                        `;
+                        noteBody.appendChild(checkbox);
+                    } else if (trimmedLine === '---') {
+                        // Convert markdown separator to HTML
+                        if (currentLine) {
+                            const paragraph = document.createElement('p');
+                            paragraph.textContent = currentLine;
+                            noteBody.appendChild(paragraph);
+                            currentLine = '';
+                        }
+                        const separator = document.createElement('hr');
+                        separator.className = 'separator';
+                        noteBody.appendChild(separator);
+                    } else if (trimmedLine) {
+                        // Regular text
+                        if (currentLine) {
+                            currentLine += ' ' + trimmedLine;
+                        } else {
+                            currentLine = trimmedLine;
+                        }
+                        inParagraph = true;
+                    } else if (currentLine) {
+                        // Empty line after content - create paragraph
+                        const paragraph = document.createElement('p');
+                        paragraph.textContent = currentLine;
+                        noteBody.appendChild(paragraph);
+                        currentLine = '';
+                        inParagraph = false;
+                    } else if (!inParagraph && !isFirstLine) {
+                        // Add extra line break for spacing, but not at the start
+                        noteBody.appendChild(document.createElement('br'));
+                    }
+                    isFirstLine = false;
+                });
+
+                // Add any remaining content
+                if (currentLine) {
+                    const paragraph = document.createElement('p');
+                    paragraph.textContent = currentLine;
+                    noteBody.appendChild(paragraph);
+                }
+
+                // Reset file input
+                e.target.value = '';
+            };
+            reader.readAsText(file);
+        });
     </script>
 </body>
 </html> 
