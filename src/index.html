@@ -18,22 +18,106 @@
       }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/daisyui@4.10.2/dist/full.js"></script>
+    <style>
+      @keyframes breathe {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+      
+      .cursor-bar {
+        position: absolute;
+        width: 3px;
+        height: 1.2em;
+        background-color: #10b981; /* emerald-500 */
+        border-radius: 1.5px;
+        pointer-events: none;
+        display: none; /* Hide by default */
+        animation: breathe 2s ease-in-out infinite;
+      }
+
+      .separator {
+        display: block;
+        width: 100%;
+        height: 1px;
+        background-color: #e5e7eb;
+        margin: 0.5rem 0;
+        position: relative;
+      }
+
+      #note-body {
+        position: relative;
+        caret-color: transparent; /* Hide default cursor */
+      }
+
+      #note-body:focus {
+        outline: none;
+      }
+
+      .app-container {
+        width: 400px;
+        background-color: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .content-area {
+        flex: 1;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+      }
+    </style>
 </head>
-<body class="font-sans bg-gray-100 text-gray-900 m-0 p-0 min-h-screen">
-    <main class="max-w-2xl mx-auto px-4 pt-10">
-        <div id="note-title-area" class="mb-2">
-            <button id="title-btn" class="w-full text-3xl font-bold text-left text-gray-400 hover:text-gray-600 bg-transparent border-0 outline-none py-2 px-0 transition-colors">What to...</button>
-            <input id="title-input" type="text" class="w-full text-3xl font-medium bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-400 outline-none py-2 px-0 mt-0 hidden placeholder-gray-400" placeholder="What to..." />
-            <h2 id="note-title" class="text-3xl font-semibold mt-1 mb-1 hidden cursor-pointer"></h2>
+<body class="font-sans bg-gray-100 text-gray-900 m-0 p-0 min-h-screen flex items-center justify-center">
+    <div class="app-container">
+        <div class="content-area">
+            <div id="note-title-area" class="mb-2">
+                <button id="title-btn" class="w-full text-2xl font-bold text-left text-gray-400 hover:text-gray-600 bg-transparent border-0 outline-none py-1 px-0 transition-colors">What to...</button>
+                <input id="title-input" type="text" class="w-full text-2xl font-medium bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-400 outline-none py-1 px-0 mt-0 hidden placeholder-gray-400" placeholder="What to..." />
+                <h2 id="note-title" class="text-2xl font-semibold mt-1 mb-1 hidden cursor-pointer"></h2>
+            </div>
+            <div id="note-body" class="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-blue-400 outline-none text-base py-2 px-0 hidden" contenteditable="true" placeholder="Start writing your note..."></div>
         </div>
-        <div id="note-body" class="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-blue-400 outline-none text-lg py-2 px-0 hidden" contenteditable="true" placeholder="Start writing your note..."></div>
-    </main>
+    </div>
     <script src="script.js"></script>
     <script>
       const titleBtn = document.getElementById('title-btn');
       const titleInput = document.getElementById('title-input');
       const noteTitle = document.getElementById('note-title');
       const noteBody = document.getElementById('note-body');
+
+      // Create cursor bar element
+      const cursorBar = document.createElement('div');
+      cursorBar.className = 'cursor-bar';
+      document.body.appendChild(cursorBar);
+
+      // Function to update cursor position
+      function updateCursorPosition() {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        
+        // Position the cursor bar
+        cursorBar.style.left = `${rect.left}px`;
+        cursorBar.style.top = `${rect.top}px`;
+        cursorBar.style.height = `${rect.height}px`;
+        cursorBar.style.display = 'block';
+      }
+
+      // Update cursor position on various events
+      noteBody.addEventListener('input', updateCursorPosition);
+      noteBody.addEventListener('keyup', updateCursorPosition);
+      noteBody.addEventListener('click', updateCursorPosition);
+      noteBody.addEventListener('focus', () => {
+        if (noteBody.textContent.length > 0) {
+          updateCursorPosition();
+        }
+      });
+      noteBody.addEventListener('blur', () => cursorBar.style.display = 'none');
 
       titleBtn.addEventListener('click', () => {
         titleBtn.classList.add('hidden');
@@ -43,7 +127,7 @@
 
       titleInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && titleInput.value.trim() !== '') {
-          e.preventDefault(); // Prevent default Enter behavior
+          e.preventDefault();
           noteTitle.textContent = titleInput.value;
           noteTitle.classList.remove('hidden');
           titleInput.classList.add('hidden');
@@ -149,7 +233,7 @@
         }
       });
 
-      // Handle Enter key for checkbox conversion
+      // Handle Enter key for checkbox conversion and separator
       noteBody.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -163,6 +247,29 @@
             currentLine = currentNode.textContent;
           } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
             currentLine = currentNode.textContent;
+          }
+
+          // Check if the line is a separator
+          if (currentLine.trim() === '---') {
+            // Create separator
+            const separator = document.createElement('div');
+            separator.className = 'separator';
+            if (currentNode.nodeType === Node.TEXT_NODE) {
+              currentNode.parentNode.replaceChild(separator, currentNode);
+            } else {
+              currentNode.replaceWith(separator);
+            }
+            
+            // Create a new line after separator
+            const newLine = document.createElement('div');
+            separator.after(newLine);
+            
+            // Set cursor position on new line
+            range.setStart(newLine, 0);
+            range.setEnd(newLine, 0);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            return;
           }
 
           // Check if the line starts with '- '
@@ -205,7 +312,7 @@
             selection.removeAllRanges();
             selection.addRange(range);
           } else {
-            // If not a bullet point, just insert a new line
+            // If not a bullet point or separator, just insert a new line
             document.execCommand('insertLineBreak');
           }
         }
