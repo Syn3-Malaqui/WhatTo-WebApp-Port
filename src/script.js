@@ -5,6 +5,49 @@ document.addEventListener('DOMContentLoaded', function() {
   const noteTitle = document.getElementById('note-title');
   const noteBody = document.getElementById('note-body');
 
+  // Clear any existing search highlights that might be saved in localStorage
+  function clearStoredSearchHighlights() {
+    try {
+      const savedPages = localStorage.getItem('whatToPages');
+      if (savedPages) {
+        const parsedPages = JSON.parse(savedPages);
+        let needsUpdate = false;
+        
+        // Check each page for search-highlight spans
+        parsedPages.forEach((page, index) => {
+          if (page.body && page.body.includes('search-highlight')) {
+            // Create a temporary div to parse and clean the HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = page.body;
+            
+            // Find and remove all search highlights
+            const highlights = tempDiv.querySelectorAll('.search-highlight');
+            if (highlights.length > 0) {
+              needsUpdate = true;
+              highlights.forEach(highlight => {
+                const textNode = document.createTextNode(highlight.textContent);
+                highlight.parentNode.replaceChild(textNode, highlight);
+              });
+              
+              // Update the page body without highlights
+              parsedPages[index].body = tempDiv.innerHTML;
+            }
+          }
+        });
+        
+        // If we removed any highlights, save the updated pages back to localStorage
+        if (needsUpdate) {
+          localStorage.setItem('whatToPages', JSON.stringify(parsedPages));
+        }
+      }
+    } catch (e) {
+      console.error('Error clearing search highlights:', e);
+    }
+  }
+  
+  // Call the function to clear highlights on page load
+  clearStoredSearchHighlights();
+
   if (titleBtn && titleInput && noteTitle && noteBody) {
     titleBtn.addEventListener('click', () => {
       titleBtn.classList.add('hidden');
@@ -1196,14 +1239,14 @@ document.addEventListener('DOMContentLoaded', function() {
     searchNavContainer.className = 'search-nav hidden';
     
     const prevButton = document.createElement('button');
-    prevButton.innerHTML = '&uarr;';
+    prevButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>`;
     prevButton.className = 'search-nav-btn search-prev-btn';
-    prevButton.title = 'Previous result (Shift+Enter)';
+    prevButton.title = 'Previous result (Left or Shift+Enter)';
     
     const nextButton = document.createElement('button');
-    nextButton.innerHTML = '&darr;';
+    nextButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>`;
     nextButton.className = 'search-nav-btn search-next-btn';
-    nextButton.title = 'Next result (Enter)';
+    nextButton.title = 'Next result (Right or Enter)';
     
     const resultCounter = document.createElement('span');
     resultCounter.className = 'search-result-counter';
@@ -1219,6 +1262,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentSearchTerm = '';
     let allSearchResults = [];
     let currentResultIndex = -1;
+    let isSearchTransitioning = false;
     
     // Store search results for each page
     let pageSearchResults = Array.from({length: NUM_PAGES}, () => []);
@@ -1476,8 +1520,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Navigate to next/previous result
     function navigateSearchResult(direction) {
-      if (allSearchResults.length === 0) return;
-      
+      if (allSearchResults.length === 0 || isSearchTransitioning) return;
+      isSearchTransitioning = true;
+
       // Calculate new index
       let newIndex;
       if (direction === 'next') {
@@ -1485,7 +1530,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } else {
         newIndex = currentResultIndex > 0 ? currentResultIndex - 1 : allSearchResults.length - 1;
       }
-      
+
       currentResultIndex = newIndex;
       const result = allSearchResults[currentResultIndex];
       
@@ -1548,6 +1593,7 @@ document.addEventListener('DOMContentLoaded', function() {
               // Highlight the current result
               setTimeout(() => {
                 highlightCurrentResult();
+                isSearchTransitioning = false;
               }, 50);
             }, 150);
           }, 20);
@@ -1555,6 +1601,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } else {
         // Just highlight the current result on the same page
         highlightCurrentResult();
+        isSearchTransitioning = false;
       }
     }
     
