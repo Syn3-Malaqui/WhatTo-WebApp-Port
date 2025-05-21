@@ -108,12 +108,34 @@ html, body {
   background: #d1d5db;
   border: 2px solid #9ca3af;
   cursor: pointer;
-  transition: border 0.2s, background 0.2s;
+  transition: border 0.3s ease, background 0.3s ease, transform 0.2s ease;
   outline: none;
   flex-shrink: 0;
+}
+
+.page-btn:hover {
+  background: #93c5fd; /* Light blue on hover */
+  border-color: #3b82f6;
+  transform: scale(1.1);
 }
 
 .page-btn.active, .page-btn:focus {
   background: #60a5fa;
   border-color: #2563eb;
+  animation: pulse 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 5px rgba(37, 99, 235, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
 } 

@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const checkbox = document.createElement('div');
         checkbox.className = 'flex items-center gap-2 my-1';
         checkbox.innerHTML = `
-          <input type="checkbox" class="checkbox checkbox-primary" ${isChecked ? 'checked' : ''}>
+          <input type="checkbox" class="checkbox checkbox-primary" ${isChecked ? 'checked="checked"' : ''}>
           <span class="ml-2">${text}</span>
         `;
         
@@ -333,6 +333,10 @@ document.addEventListener('DOMContentLoaded', function() {
           range.setEnd(cursorNode, 0);
           selection.removeAllRanges();
           selection.addRange(range);
+          
+          // Save the current page state
+          saveCurrentPage();
+          return;
         } else {
           // If not a bullet point or separator, just insert a new line
           document.execCommand('insertLineBreak');
@@ -425,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   }
                   const checkbox = document.createElement('div');
                   checkbox.className = 'flex items-center gap-2 my-1';
-                  checkbox.innerHTML = `\n                <input type="checkbox" class="checkbox checkbox-primary" ${checked ? 'checked' : ''}>\n                <span class="ml-2">${text}</span>\n              `;
+                  checkbox.innerHTML = `\n                <input type="checkbox" class="checkbox checkbox-primary" ${checked ? 'checked="checked"' : ''}>\n                <span class="ml-2">${text}</span>\n              `;
                   noteBodyTemp.appendChild(checkbox);
                   inParagraph = false;
                 } else if (trimmedLine === '---') {
@@ -547,23 +551,6 @@ document.addEventListener('DOMContentLoaded', function() {
     console.error('Error loading saved pages:', e);
   }
 
-  function saveCurrentPage() {
-    // If title input is active, use its value instead of the title element
-    if (!titleInput.classList.contains('hidden')) {
-      pages[currentPage].title = titleInput.value.trim() || '';
-    } else {
-      pages[currentPage].title = noteTitle.textContent || '';
-    }
-    
-    pages[currentPage].body = noteBody.innerHTML || '';
-    
-    // Also save to localStorage for persistence
-    try {
-      localStorage.setItem('whatToPages', JSON.stringify(pages));
-    } catch (e) {
-      console.error('Error saving pages:', e);
-    }
-  }
   function loadPage(idx) {
     // Update title
     noteTitle.textContent = pages[idx].title;
@@ -571,11 +558,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update body content
     noteBody.innerHTML = pages[idx].body;
     
-    // Restore event handlers for checkboxes
-    noteBody.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-      checkbox.addEventListener('change', function() {
-        saveCurrentPage();
-      });
+    // Ensure checkbox states are properly set based on the 'checked' attribute
+    noteBody.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+      // Make sure the checked property matches the attribute
+      if (checkbox.hasAttribute('checked')) {
+        checkbox.checked = true;
+      } else {
+        checkbox.checked = false;
+      }
     });
     
     // Show/hide title/body as needed
@@ -595,9 +585,44 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   }
+
+  function saveCurrentPage() {
+    // If title input is active, use its value instead of the title element
+    if (!titleInput.classList.contains('hidden')) {
+      pages[currentPage].title = titleInput.value.trim() || '';
+    } else {
+      pages[currentPage].title = noteTitle.textContent || '';
+    }
+    
+    pages[currentPage].body = noteBody.innerHTML || '';
+    
+    // Also save to localStorage for persistence
+    try {
+      localStorage.setItem('whatToPages', JSON.stringify(pages));
+    } catch (e) {
+      console.error('Error saving pages:', e);
+    }
+  }
+
   function updatePageBtns() {
     pageBtns.forEach((btn, i) => {
-      btn.classList.toggle('active', i === currentPage);
+      // First, update the active state
+      const isActive = i === currentPage;
+      
+      if (isActive && !btn.classList.contains('active')) {
+        // Only trigger animation if button is not already active
+        btn.classList.remove('active');
+        // Use setTimeout with 0ms to ensure the class is removed before adding it back
+        setTimeout(() => {
+          btn.classList.add('active');
+        }, 0);
+      } else if (!isActive && btn.classList.contains('active')) {
+        btn.classList.remove('active');
+      } else if (isActive && btn.classList.contains('active')) {
+        // Already active, no need to trigger animation
+      } else {
+        // Not active and shouldn't be active, no change needed
+      }
     });
   }
   pageBtns.forEach((btn, i) => {
@@ -611,7 +636,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
       
+      // Save current page state before switching
       saveCurrentPage();
+      
+      // Switch to new page
       currentPage = i;
       loadPage(i);
       updatePageBtns();
@@ -629,6 +657,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add event delegation for checkbox changes
   noteBody.addEventListener('change', function(e) {
     if (e.target.type === 'checkbox') {
+      // Ensure the checked attribute is properly set in the HTML
+      if (e.target.checked) {
+        e.target.setAttribute('checked', 'checked');
+      } else {
+        e.target.removeAttribute('checked');
+      }
+      
       saveCurrentPage();
     }
   });
@@ -636,6 +671,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add function to toggle checkbox state
   function toggleCheckbox(checkbox) {
     checkbox.checked = !checkbox.checked;
+    
+    // Ensure the checked attribute is properly set in the HTML
+    if (checkbox.checked) {
+      checkbox.setAttribute('checked', 'checked');
+    } else {
+      checkbox.removeAttribute('checked');
+    }
+    
     saveCurrentPage();
   }
 
@@ -649,6 +692,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (checkbox) {
         toggleCheckbox(checkbox);
       }
+    }
+    // Also handle direct clicks on the checkbox (this is redundant but ensures we catch all changes)
+    else if (e.target.type === 'checkbox') {
+      // The change event will handle this, so we don't need to do anything here
     }
   });
 
@@ -740,7 +787,7 @@ document.addEventListener('DOMContentLoaded', function() {
               }
               const checkbox = document.createElement('div');
               checkbox.className = 'flex items-center gap-2 my-1';
-              checkbox.innerHTML = `\n                <input type="checkbox" class="checkbox checkbox-primary" ${checked ? 'checked' : ''}>\n                <span class="ml-2">${text}</span>\n              `;
+              checkbox.innerHTML = `\n                <input type="checkbox" class="checkbox checkbox-primary" ${checked ? 'checked="checked"' : ''}>\n                <span class="ml-2">${text}</span>\n              `;
               noteBodyTemp.appendChild(checkbox);
               inParagraph = false;
             } else if (trimmedLine === '---') {
