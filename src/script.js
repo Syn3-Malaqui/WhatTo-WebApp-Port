@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', function() {
       titleBtn.classList.add('hidden');
       titleInput.classList.remove('hidden');
       titleInput.focus();
+      
+      // Save current page state
+      saveCurrentPage();
     });
 
     titleInput.addEventListener('keydown', (e) => {
@@ -20,6 +23,9 @@ document.addEventListener('DOMContentLoaded', function() {
         titleInput.classList.add('hidden');
         noteBody.classList.remove('hidden');
         noteBody.focus();
+        
+        // Save current page when title is updated
+        saveCurrentPage();
       }
     });
 
@@ -29,6 +35,19 @@ document.addEventListener('DOMContentLoaded', function() {
       noteTitle.classList.add('hidden');
       titleInput.classList.remove('hidden');
       titleInput.focus();
+    });
+
+    // Save title on blur
+    titleInput.addEventListener('blur', () => {
+      if (titleInput.value.trim() !== '') {
+        noteTitle.textContent = titleInput.value;
+        noteTitle.classList.remove('hidden');
+        titleInput.classList.add('hidden');
+        noteBody.classList.remove('hidden');
+        
+        // Save current page when title is updated
+        saveCurrentPage();
+      }
     });
 
     // Handle input for ghosting effect
@@ -529,7 +548,13 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function saveCurrentPage() {
-    pages[currentPage].title = noteTitle.textContent || '';
+    // If title input is active, use its value instead of the title element
+    if (!titleInput.classList.contains('hidden')) {
+      pages[currentPage].title = titleInput.value.trim() || '';
+    } else {
+      pages[currentPage].title = noteTitle.textContent || '';
+    }
+    
     pages[currentPage].body = noteBody.innerHTML || '';
     
     // Also save to localStorage for persistence
@@ -540,7 +565,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   function loadPage(idx) {
+    // Update title
     noteTitle.textContent = pages[idx].title;
+    
+    // Update body content
     noteBody.innerHTML = pages[idx].body;
     
     // Restore event handlers for checkboxes
@@ -551,7 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Show/hide title/body as needed
-    if (pages[idx].title) {
+    if (pages[idx].title && pages[idx].title.trim() !== '') {
       noteTitle.classList.remove('hidden');
       titleBtn.classList.add('hidden');
       titleInput.classList.add('hidden');
@@ -560,7 +588,11 @@ document.addEventListener('DOMContentLoaded', function() {
       noteTitle.classList.add('hidden');
       titleBtn.classList.remove('hidden');
       titleInput.classList.add('hidden');
-      noteBody.classList.add('hidden');
+      if (pages[idx].body && pages[idx].body.trim() !== '') {
+        noteBody.classList.remove('hidden');
+      } else {
+        noteBody.classList.add('hidden');
+      }
     }
   }
   function updatePageBtns() {
@@ -571,6 +603,14 @@ document.addEventListener('DOMContentLoaded', function() {
   pageBtns.forEach((btn, i) => {
     btn.addEventListener('click', () => {
       if (i === currentPage) return;
+      
+      // If title input is active, save its value before switching
+      if (!titleInput.classList.contains('hidden')) {
+        if (titleInput.value.trim() !== '') {
+          noteTitle.textContent = titleInput.value;
+        }
+      }
+      
       saveCurrentPage();
       currentPage = i;
       loadPage(i);
