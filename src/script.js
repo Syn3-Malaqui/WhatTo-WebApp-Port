@@ -1181,4 +1181,627 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }, 0);
   });
+
+  // Search functionality
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    // Create a counter element to show number of matches
+    const searchCounter = document.createElement('div');
+    searchCounter.className = 'search-counter';
+    searchCounter.textContent = '0';
+    document.querySelector('.search-container').appendChild(searchCounter);
+
+    // Create navigation buttons for cycling through results
+    const searchNavContainer = document.createElement('div');
+    searchNavContainer.className = 'search-nav hidden';
+    
+    const prevButton = document.createElement('button');
+    prevButton.innerHTML = '&uarr;';
+    prevButton.className = 'search-nav-btn search-prev-btn';
+    prevButton.title = 'Previous result (Shift+Enter)';
+    
+    const nextButton = document.createElement('button');
+    nextButton.innerHTML = '&darr;';
+    nextButton.className = 'search-nav-btn search-next-btn';
+    nextButton.title = 'Next result (Enter)';
+    
+    const resultCounter = document.createElement('span');
+    resultCounter.className = 'search-result-counter';
+    resultCounter.textContent = '0/0';
+    
+    searchNavContainer.appendChild(prevButton);
+    searchNavContainer.appendChild(resultCounter);
+    searchNavContainer.appendChild(nextButton);
+    
+    document.querySelector('.search-container').appendChild(searchNavContainer);
+    
+    // Variables to track search results across pages
+    let currentSearchTerm = '';
+    let allSearchResults = [];
+    let currentResultIndex = -1;
+    
+    // Store search results for each page
+    let pageSearchResults = Array.from({length: NUM_PAGES}, () => []);
+    
+    // Add search input event
+    searchInput.addEventListener('input', function() {
+      const searchTerm = this.value.trim();
+      
+      if (searchTerm.length < 2) {
+        searchCounter.classList.remove('has-results');
+        searchNavContainer.classList.add('hidden');
+        clearHighlights();
+        currentSearchTerm = '';
+        allSearchResults = [];
+        pageSearchResults = Array.from({length: NUM_PAGES}, () => []);
+        currentResultIndex = -1;
+        return;
+      }
+      
+      // If search term changed, reset index
+      if (searchTerm !== currentSearchTerm) {
+        currentResultIndex = -1;
+        currentSearchTerm = searchTerm;
+        
+        // Clear previous results
+        allSearchResults = [];
+        pageSearchResults = Array.from({length: NUM_PAGES}, () => []);
+        
+        // Build search results for all pages
+        for (let pageIndex = 0; pageIndex < NUM_PAGES; pageIndex++) {
+          const page = pages[pageIndex];
+          
+          // Create a temporary div to parse the HTML content
+          const tempDiv = document.createElement('div');
+          
+          // Set title
+          const titleElement = document.createElement('h2');
+          titleElement.textContent = page.title || '';
+          tempDiv.appendChild(titleElement);
+          
+          // Set body
+          const bodyElement = document.createElement('div');
+          bodyElement.innerHTML = page.body || '';
+          tempDiv.appendChild(bodyElement);
+          
+          // Find all text nodes in the temp div
+          const walker = document.createTreeWalker(
+            tempDiv,
+            NodeFilter.SHOW_TEXT,
+            {
+              acceptNode: function(node) {
+                // Skip empty text nodes or nodes in script or style elements
+                if (!node.textContent.trim() || 
+                    node.parentNode.tagName === 'SCRIPT' ||
+                    node.parentNode.tagName === 'STYLE') {
+                  return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+              }
+            }
+          );
+          
+          // Collect matches from this page
+          const pageResults = [];
+          
+          let node;
+          while (node = walker.nextNode()) {
+            const nodeText = node.textContent;
+            const regex = new RegExp(escapeRegExp(searchTerm), 'gi');
+            let match;
+            
+            while ((match = regex.exec(nodeText)) !== null) {
+              // Get some context around the match
+              const start = Math.max(0, match.index - 30);
+              const end = Math.min(nodeText.length, match.index + match[0].length + 30);
+              const context = nodeText.substring(start, end);
+              
+              // Create a result object
+              pageResults.push({
+                pageIndex: pageIndex,
+                node: node,
+                matchIndex: match.index,
+                matchLength: match[0].length,
+                context: context,
+                contextStart: start,
+                nodeText: nodeText
+              });
+            }
+          }
+          
+          // Store results for this page
+          pageSearchResults[pageIndex] = pageResults;
+          allSearchResults = allSearchResults.concat(pageResults);
+        }
+        
+        // If we're on current page and have results, find closest result to viewport
+        if (pageSearchResults[currentPage].length > 0) {
+          // We'll determine this after highlighting
+          currentResultIndex = -1;
+        }
+      }
+      
+      // Update the current page results display
+      updatePageSearchResults();
+      
+      // Find closest visible result if we haven't selected one yet
+      if (currentResultIndex === -1 && allSearchResults.length > 0) {
+        findClosestVisibleResult();
+      }
+    });
+    
+    // Function to find the closest visible result to the current viewport
+    function findClosestVisibleResult() {
+      // Only applicable for results on the current page
+      const currentPageResults = pageSearchResults[currentPage];
+      if (currentPageResults.length === 0) {
+        // If no results on current page, just use the first result overall
+        if (allSearchResults.length > 0) {
+          currentResultIndex = 0;
+          resultCounter.textContent = `1/${allSearchResults.length}`;
+        }
+        return;
+      }
+      
+      // Get all highlights on the page
+      const highlights = Array.from(document.querySelectorAll('.search-highlight'));
+      if (highlights.length === 0) return;
+      
+      // Get viewport bounds
+      const viewportTop = window.scrollY || document.documentElement.scrollTop;
+      const viewportBottom = viewportTop + window.innerHeight;
+      const viewportCenter = viewportTop + (window.innerHeight / 2);
+      
+      // Find visible highlights and calculate distance to viewport center
+      const visibleHighlights = highlights.map((highlight, index) => {
+        const rect = highlight.getBoundingClientRect();
+        const highlightTop = rect.top + viewportTop;
+        const highlightBottom = rect.bottom + viewportTop;
+        
+        // Check if visible
+        const isVisible = (highlightBottom >= viewportTop && highlightTop <= viewportBottom);
+        
+        // Calculate distance to center of viewport
+        const distance = Math.abs((highlightTop + highlightBottom) / 2 - viewportCenter);
+        
+        return { 
+          element: highlight, 
+          index: index, 
+          isVisible: isVisible,
+          distance: distance 
+        };
+      });
+      
+      // First try to find visible highlights
+      const visibleResults = visibleHighlights.filter(h => h.isVisible);
+      
+      let closestHighlight;
+      if (visibleResults.length > 0) {
+        // Sort by distance to center
+        closestHighlight = visibleResults.sort((a, b) => a.distance - b.distance)[0];
+      } else {
+        // If no visible results, find the closest one above or below viewport
+        closestHighlight = visibleHighlights.sort((a, b) => a.distance - b.distance)[0];
+      }
+      
+      if (closestHighlight) {
+        // Find which global result this corresponds to
+        const pageResultIndices = pageSearchResults[currentPage].map((_, i) => i);
+        const globalIndices = allSearchResults.map((result, index) => 
+          result.pageIndex === currentPage ? index : -1).filter(i => i !== -1);
+        
+        if (globalIndices.length > closestHighlight.index) {
+          currentResultIndex = globalIndices[closestHighlight.index];
+          resultCounter.textContent = `${currentResultIndex + 1}/${allSearchResults.length}`;
+          highlightCurrentResult();
+        }
+      }
+    }
+    
+    // Function to update search results display for current page
+    function updatePageSearchResults() {
+      clearHighlights();
+      
+      const totalResults = allSearchResults.length;
+      let currentPageResults = 0;
+      
+      // Check if we have results
+      if (totalResults > 0) {
+        // Count results on current page
+        currentPageResults = pageSearchResults[currentPage].length;
+        
+        // Highlight matches on the current page
+        if (currentPageResults > 0) {
+          // Title
+          const titleText = noteTitle.textContent;
+          if (titleText && titleText.includes(currentSearchTerm)) {
+            noteTitle.innerHTML = highlightText(titleText, currentSearchTerm, 0);
+          }
+          // Body
+          highlightInElements(noteBody, currentSearchTerm, 0);
+          
+          // Highlight the current result if it's on this page
+          if (currentResultIndex >= 0) {
+            const currentPageResultIndices = allSearchResults
+              .map((result, index) => result.pageIndex === currentPage ? index : -1)
+              .filter(index => index !== -1);
+              
+            if (currentPageResultIndices.includes(currentResultIndex)) {
+              highlightCurrentResult();
+            }
+          }
+        }
+        
+        // Show navigation and counter only if there are results
+        searchCounter.textContent = totalResults;
+        searchCounter.classList.add('has-results');
+        searchNavContainer.classList.remove('hidden');
+        
+        // Update result counter
+        const currentNumber = currentResultIndex >= 0 ? currentResultIndex + 1 : 0;
+        resultCounter.textContent = `${currentNumber}/${totalResults}`;
+      } else {
+        // No results found
+        searchCounter.classList.remove('has-results');
+        searchNavContainer.classList.add('hidden');
+      }
+    }
+    
+    // Highlight current search result
+    function highlightCurrentResult() {
+      // Remove previous current highlight
+      const previousCurrentHighlight = document.querySelector('.search-highlight-current');
+      if (previousCurrentHighlight) {
+        previousCurrentHighlight.classList.remove('search-highlight-current');
+      }
+      
+      if (currentResultIndex >= 0 && currentResultIndex < allSearchResults.length) {
+        // Find the highlight with the correct data-result-index
+        const highlight = document.querySelector('.search-highlight[data-result-index="' + currentResultIndex + '"]');
+        if (highlight) {
+          highlight.classList.add('search-highlight-current');
+          // Scroll into view visually only, never select
+          setTimeout(() => {
+            const rect = highlight.getBoundingClientRect();
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const targetY = rect.top + scrollTop - (window.innerHeight / 2) + (rect.height / 2);
+            window.scrollTo({
+              top: targetY,
+              behavior: 'smooth'
+            });
+          }, 50);
+        }
+      }
+    }
+    
+    // Navigate to next/previous result
+    function navigateSearchResult(direction) {
+      if (allSearchResults.length === 0) return;
+      
+      // Calculate new index
+      let newIndex;
+      if (direction === 'next') {
+        newIndex = currentResultIndex < allSearchResults.length - 1 ? currentResultIndex + 1 : 0;
+      } else {
+        newIndex = currentResultIndex > 0 ? currentResultIndex - 1 : allSearchResults.length - 1;
+      }
+      
+      currentResultIndex = newIndex;
+      const result = allSearchResults[currentResultIndex];
+      
+      // Update result counter
+      resultCounter.textContent = `${currentResultIndex + 1}/${allSearchResults.length}`;
+      
+      // Check if we need to switch pages
+      if (result.pageIndex !== currentPage) {
+        // Save current page
+        saveCurrentPage();
+        
+        // Switch to the page containing the result
+        const previousPage = currentPage;
+        currentPage = result.pageIndex;
+        
+        // Start transition - animate content out
+        const container = document.querySelector('.app-container');
+        const titleArea = document.getElementById('note-title-area');
+        
+        // Add fade-out class to content elements
+        titleArea.classList.add('fade-out');
+        noteTitle.classList.add('fade-out');
+        noteBody.classList.add('fade-out');
+        
+        // After content fades out, prepare for page switch
+        setTimeout(() => {
+          // Temporarily hide content while we measure the new size
+          titleArea.style.visibility = 'hidden';
+          document.getElementById('page-controls').style.visibility = 'hidden';
+          if (!noteTitle.classList.contains('hidden')) {
+            noteTitle.style.visibility = 'hidden';
+          }
+          noteBody.style.visibility = 'hidden';
+          
+          // Load page content
+          loadPage(result.pageIndex);
+          updatePageBtns();
+          
+          // Give browser time to render content before measuring height
+          setTimeout(() => {
+            // Calculate the height for new content
+            adjustContainerSize();
+            
+            // After height transition starts, fade in the content
+            setTimeout(() => {
+              // Restore visibility first
+              titleArea.style.visibility = '';
+              document.getElementById('page-controls').style.visibility = '';
+              noteTitle.style.visibility = '';
+              noteBody.style.visibility = '';
+              
+              // Then fade in
+              titleArea.classList.remove('fade-out');
+              noteTitle.classList.remove('fade-out');
+              noteBody.classList.remove('fade-out');
+              
+              // Re-apply the search highlights to the new page
+              updatePageSearchResults();
+              
+              // Highlight the current result
+              setTimeout(() => {
+                highlightCurrentResult();
+              }, 50);
+            }, 150);
+          }, 20);
+        }, 250);
+      } else {
+        // Just highlight the current result on the same page
+        highlightCurrentResult();
+      }
+    }
+    
+    // Add navigation button click events
+    nextButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateSearchResult('next');
+    });
+    
+    prevButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateSearchResult('prev');
+    });
+    
+    // Add keyboard navigation
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        // Clear search
+        this.value = '';
+        clearHighlights();
+        searchCounter.classList.remove('has-results');
+        searchNavContainer.classList.add('hidden');
+        currentSearchTerm = '';
+        this.blur();
+      } else if (e.key === 'Enter') {
+        if (allSearchResults.length > 0) {
+          e.preventDefault();
+          // Shift+Enter goes to previous, Enter goes to next
+          navigateSearchResult(e.shiftKey ? 'prev' : 'next');
+          // Return focus to search input for continued searching
+          setTimeout(() => {
+            // Keep focus on the search input
+            this.focus();
+          }, 50);
+        }
+      }
+      // For all other keys, let normal typing continue
+    });
+    
+    // Clear highlights when focusing away from search
+    searchInput.addEventListener('blur', function() {
+      // Keep highlights when navigating
+      if (document.activeElement === prevButton || 
+          document.activeElement === nextButton || 
+          document.activeElement === resultCounter) {
+        return;
+      }
+      
+      // Only clear if we're not on search elements
+      if (!searchNavContainer.contains(document.activeElement)) {
+        // Keep the term and results, just remove visual highlights
+        if (this.value.trim().length < 2) {
+          clearHighlights();
+          searchCounter.classList.remove('has-results');
+          searchNavContainer.classList.add('hidden');
+        }
+      }
+    });
+    
+    // Re-highlight when focusing back on search
+    searchInput.addEventListener('focus', function() {
+      if (this.value.trim().length >= 2) {
+        this.dispatchEvent(new Event('input'));
+      }
+    });
+    
+    // Update the search results when switching pages
+    const originalUpdatePageBtns = updatePageBtns;
+    updatePageBtns = function() {
+      originalUpdatePageBtns();
+      
+      // Re-apply search if there's an active search term
+      if (currentSearchTerm && currentSearchTerm.length >= 2) {
+        updatePageSearchResults();
+      }
+    };
+    
+    // Update search when page content changes
+    const originalSaveCurrentPage = saveCurrentPage;
+    saveCurrentPage = function() {
+      originalSaveCurrentPage();
+      
+      // Update search results for the current page
+      if (currentSearchTerm && currentSearchTerm.length >= 2) {
+        // Clear previous results for this page
+        pageSearchResults[currentPage] = [];
+        
+        // Create a temporary div to parse the HTML content
+        const tempDiv = document.createElement('div');
+        
+        // Set title
+        const titleElement = document.createElement('h2');
+        titleElement.textContent = pages[currentPage].title || '';
+        tempDiv.appendChild(titleElement);
+        
+        // Set body
+        const bodyElement = document.createElement('div');
+        bodyElement.innerHTML = pages[currentPage].body || '';
+        tempDiv.appendChild(bodyElement);
+        
+        // Find all text nodes in the temp div
+        const walker = document.createTreeWalker(
+          tempDiv,
+          NodeFilter.SHOW_TEXT,
+          {
+            acceptNode: function(node) {
+              // Skip empty text nodes or nodes in script or style elements
+              if (!node.textContent.trim() || 
+                  node.parentNode.tagName === 'SCRIPT' ||
+                  node.parentNode.tagName === 'STYLE') {
+                return NodeFilter.FILTER_REJECT;
+              }
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          }
+        );
+        
+        // Collect matches from this page
+        const pageResults = [];
+        
+        let node;
+        while (node = walker.nextNode()) {
+          const nodeText = node.textContent;
+          const regex = new RegExp(escapeRegExp(currentSearchTerm), 'gi');
+          let match;
+          
+          while ((match = regex.exec(nodeText)) !== null) {
+            // Get some context around the match
+            const start = Math.max(0, match.index - 30);
+            const end = Math.min(nodeText.length, match.index + match[0].length + 30);
+            const context = nodeText.substring(start, end);
+            
+            // Create a result object
+            pageResults.push({
+              pageIndex: currentPage,
+              node: node,
+              matchIndex: match.index,
+              matchLength: match[0].length,
+              context: context,
+              contextStart: start,
+              nodeText: nodeText
+            });
+          }
+        }
+        
+        // Store results for this page
+        pageSearchResults[currentPage] = pageResults;
+        
+        // Rebuild full results list
+        allSearchResults = [];
+        for (let i = 0; i < NUM_PAGES; i++) {
+          allSearchResults = allSearchResults.concat(pageSearchResults[i]);
+        }
+        
+        // Update display
+        updatePageSearchResults();
+      }
+    };
+  }
+  
+  // Replace highlightText and highlightInElements to add data-result-index attributes
+  function highlightText(text, searchTerm, baseIndex = 0) {
+    if (!searchTerm) return text;
+    let matchIndex = 0;
+    const regex = new RegExp(escapeRegExp(searchTerm), 'gi');
+    return text.replace(regex, match => {
+      const span = `<span class="search-highlight" data-result-index="${baseIndex + matchIndex}">${match}</span>`;
+      matchIndex++;
+      return span;
+    });
+  }
+
+  function highlightInElements(element, searchTerm, baseIndex = 0) {
+    if (!element || !searchTerm) return 0;
+    let count = 0;
+    if (element.nodeType === Node.TEXT_NODE) {
+      const parent = element.parentNode;
+      if (parent.classList && parent.classList.contains('search-highlight')) return 0;
+      const text = element.nodeValue;
+      const regex = new RegExp(escapeRegExp(searchTerm), 'gi');
+      let lastIndex = 0, match, idx = 0;
+      let found = false;
+      const fragment = document.createDocumentFragment();
+      regex.lastIndex = 0;
+      while ((match = regex.exec(text)) !== null) {
+        found = true;
+        if (match.index > lastIndex) {
+          fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+        }
+        const highlightSpan = document.createElement('span');
+        highlightSpan.className = 'search-highlight';
+        highlightSpan.textContent = match[0];
+        highlightSpan.setAttribute('data-result-index', baseIndex + count);
+        fragment.appendChild(highlightSpan);
+        lastIndex = regex.lastIndex;
+        count++;
+      }
+      if (found) {
+        if (lastIndex < text.length) {
+          fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+        }
+        parent.replaceChild(fragment, element);
+      }
+      return count;
+    } else if (element.nodeType === Node.ELEMENT_NODE) {
+      if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') return 0;
+      let total = 0;
+      const childNodes = Array.from(element.childNodes);
+      for (const child of childNodes) {
+        total += highlightInElements(child, searchTerm, baseIndex + total);
+      }
+      return total;
+    }
+    return 0;
+  }
+
+  // Function to clear all highlights
+  function clearHighlights() {
+    // Clear title highlights
+    if (noteTitle.innerHTML.includes('search-highlight')) {
+      noteTitle.textContent = noteTitle.textContent;
+    }
+    
+    // Clear body highlights
+    const highlights = noteBody.querySelectorAll('.search-highlight');
+    for (const highlight of highlights) {
+      const textNode = document.createTextNode(highlight.textContent);
+      highlight.parentNode.replaceChild(textNode, highlight);
+    }
+    
+    // Normalize the note body to merge adjacent text nodes
+    noteBody.normalize();
+  }
+  
+  // Helper function to escape special regex characters
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  
+  // Helper function to count occurrences
+  function countOccurrences(string, subString) {
+    if (!string || !subString) return 0;
+    
+    const regex = new RegExp(escapeRegExp(subString), 'gi');
+    const matches = string.match(regex);
+    return matches ? matches.length : 0;
+  }
 }); 
