@@ -693,6 +693,64 @@ document.addEventListener('DOMContentLoaded', function() {
         noteBody.classList.add('hidden');
       }
     }
+    
+    // Calculate and set container height based on content
+    // This must happen after content is updated but before transitions
+    adjustContainerSize();
+  }
+  
+  // Function to adjust container size based on content with smooth animation
+  function adjustContainerSize() {
+    const container = document.querySelector('.app-container');
+    const titleArea = document.getElementById('note-title-area');
+    const contentArea = document.querySelector('.content-area');
+    
+    // Schedule the height adjustment to allow content to render properly first
+    setTimeout(() => {
+      // Get current height for transition start point
+      const currentHeight = container.offsetHeight;
+      
+      // Temporarily remove transition to measure natural height
+      const originalTransition = container.style.transition;
+      const originalOverflow = container.style.overflow;
+      container.style.transition = 'none';
+      
+      // Reset height to auto to get the natural content height
+      container.style.height = 'auto';
+      
+      // Calculate the natural height of the content
+      const titleHeight = titleArea.offsetHeight;
+      const contentHeight = contentArea.scrollHeight;
+      
+      // Set a minimum height for the container
+      const minHeight = 250;
+      
+      // Set the container height based on content with a minimum
+      const naturalHeight = titleHeight + contentHeight + 12;
+      const targetHeight = Math.max(naturalHeight, minHeight);
+      
+      // Set back to the current height before transitioning
+      container.style.height = `${currentHeight}px`;
+      
+      // Temporarily ensure no content overflow during transition
+      if (targetHeight > currentHeight) {
+        container.style.overflow = 'hidden';
+      }
+      
+      // Force layout recalculation
+      container.offsetHeight;
+      
+      // Restore transition and set to target height to animate
+      container.style.transition = originalTransition || 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+      
+      // Smoothly transition to new height
+      container.style.height = `${targetHeight}px`;
+      
+      // Restore original overflow after transition completes
+      setTimeout(() => {
+        container.style.overflow = originalOverflow;
+      }, 500); // Match to transition duration
+    }, 10); // Small delay to ensure content is properly rendered
   }
 
   function saveCurrentPage() {
@@ -758,20 +816,99 @@ document.addEventListener('DOMContentLoaded', function() {
       // Save current page state before switching
       saveCurrentPage();
       
-      // Switch to new page
-      currentPage = i;
-      loadPage(i);
-      updatePageBtns();
+      // Start transition - animate content out
+      const container = document.querySelector('.app-container');
+      const titleArea = document.getElementById('note-title-area');
+      
+      // Add fade-out class to content elements
+      titleArea.classList.add('fade-out');
+      noteTitle.classList.add('fade-out');
+      noteBody.classList.add('fade-out');
+      
+      // After content fades out, prepare for page switch
+      setTimeout(() => {
+        // Switch to new page (update data but keep elements invisible)
+        currentPage = i;
+        
+        // Temporarily hide content while we measure the new size
+        titleArea.style.visibility = 'hidden';
+        document.getElementById('page-controls').style.visibility = 'hidden';
+        if (!noteTitle.classList.contains('hidden')) {
+          noteTitle.style.visibility = 'hidden';
+        }
+        noteBody.style.visibility = 'hidden';
+        
+        // Load page content
+        loadPage(i);
+        updatePageBtns();
+        
+        // Give browser time to render content before measuring height
+        setTimeout(() => {
+          // Calculate the height for new content
+          adjustContainerSize();
+          
+          // After height transition starts, fade in the content
+          setTimeout(() => {
+            // Restore visibility first
+            titleArea.style.visibility = '';
+            document.getElementById('page-controls').style.visibility = '';
+            noteTitle.style.visibility = '';
+            noteBody.style.visibility = '';
+            
+            // Then fade in
+            titleArea.classList.remove('fade-out');
+            noteTitle.classList.remove('fade-out');
+            noteBody.classList.remove('fade-out');
+          }, 150);
+        }, 20);
+      }, 250); // Match this to the CSS opacity transition duration
     });
   });
-  // On first load, show first page
+  // On first load, show first page and animate the widget
   loadPage(0);
   updatePageBtns();
+  
+  // Add initial animation for the app container
+  const container = document.querySelector('.app-container');
+  container.style.opacity = '0';
+  container.style.transform = 'scale(0.98) translateY(10px)';
+  
+  // Store original transition for restoration
+  const originalTransition = container.style.transition;
+  
+  // Set initial animation transition
+  container.style.transition = 'opacity 0.4s ease-out, transform 0.4s ease-out, width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+  
+  // Trigger layout calculation
+  container.offsetHeight;
+  
+  // Animate in with simple easing
+  container.style.opacity = '1';
+  container.style.transform = 'scale(1) translateY(0)';
+  
+  // Then adjust container size after initial animation
+  setTimeout(() => {
+    adjustContainerSize();
+  }, 400);
+  
+  // Also adjust container size when window is resized
+  window.addEventListener('resize', adjustContainerSize);
 
-  // When editing title or body, always save to current page
-  titleInput.addEventListener('blur', saveCurrentPage);
-  noteBody.addEventListener('input', saveCurrentPage);
-  noteBody.addEventListener('blur', saveCurrentPage);
+  // When editing title or body, always save to current page and adjust size
+  titleInput.addEventListener('blur', () => {
+    saveCurrentPage();
+    adjustContainerSize();
+  });
+  
+  noteBody.addEventListener('input', () => {
+    saveCurrentPage();
+    adjustContainerSize();
+  });
+  
+  noteBody.addEventListener('blur', () => {
+    saveCurrentPage();
+    adjustContainerSize();
+  });
 
   // Add event delegation for checkbox changes
   noteBody.addEventListener('change', function(e) {
@@ -789,16 +926,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Add function to toggle checkbox state
   function toggleCheckbox(checkbox) {
-    checkbox.checked = !checkbox.checked;
+    // Add a quick fade effect for visual feedback
+    checkbox.style.transition = 'opacity 0.15s ease';
+    checkbox.style.opacity = '0.5';
     
-    // Ensure the checked attribute is properly set in the HTML
-    if (checkbox.checked) {
-      checkbox.setAttribute('checked', 'checked');
-    } else {
-      checkbox.removeAttribute('checked');
-    }
-    
-    saveCurrentPage();
+    setTimeout(() => {
+      checkbox.checked = !checkbox.checked;
+      
+      // Ensure the checked attribute is properly set in the HTML
+      if (checkbox.checked) {
+        checkbox.setAttribute('checked', 'checked');
+      } else {
+        checkbox.removeAttribute('checked');
+      }
+      
+      checkbox.style.opacity = '1';
+      saveCurrentPage();
+      adjustContainerSize();
+    }, 50);
   }
 
   // Add click handler for checkboxes

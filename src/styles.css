@@ -43,13 +43,42 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+              height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+  will-change: width, height, transform;
 }
 
 .content-area {
   flex: 1;
-  padding: 0 1.5rem 1.5rem;
+  padding: 0 1.5rem 0.75rem;
   display: flex;
   flex-direction: column;
+  transition: opacity 0.3s ease, transform 0.3s ease, height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform, height;
+}
+
+/* Fade transition for page content */
+#note-title, #note-body, #note-title-area {
+  transition: opacity 0.3s ease, transform 0.25s ease;
+  will-change: opacity, transform;
+}
+
+.fade-out {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.fade-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* For when content is hidden but we want to keep layout space */
+.invisible {
+  visibility: hidden;
+  opacity: 0;
 }
 
 .drag-over {
@@ -77,6 +106,8 @@ html, body {
   min-width: 0;
   padding: 1rem 1.5rem 0.5rem;
   overflow: hidden;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  will-change: transform, opacity;
 }
 
 #note-title-area > .flex-1 {
@@ -99,6 +130,8 @@ html, body {
   gap: 0.5rem;
   margin-left: 0.75rem;
   flex-shrink: 0;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  will-change: transform, opacity;
 }
 
 .page-btn {
