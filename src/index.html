@@ -23,12 +23,19 @@
 <body class="font-sans bg-gray-100 text-gray-900 m-0 p-0 min-h-screen flex items-center justify-center">
     <img src="assets/header.svg" alt="WhatTo Logo" class="h-8 cursor-pointer absolute top-4 left-4" id="header-logo">
     <div class="app-container" id="drop-zone">
-        <div class="content-area">
-            <div id="note-title-area" class="mb-2">
+        <div id="note-title-area" class="flex items-center justify-between">
+            <div class="flex-1 min-w-0">
                 <button id="title-btn" class="w-full text-2xl font-bold text-left text-gray-400 hover:text-gray-600 bg-transparent border-0 outline-none py-1 px-0 transition-colors">What to...</button>
                 <input id="title-input" type="text" class="w-full text-2xl font-medium bg-transparent border-0 border-b-2 border-gray-300 focus:border-blue-400 outline-none py-1 px-0 mt-0 hidden placeholder-gray-400" placeholder="What to..." />
                 <h2 id="note-title" class="text-2xl font-semibold mt-1 mb-1 hidden cursor-pointer"></h2>
             </div>
+            <div id="page-controls" class="flex gap-2">
+                <button class="page-btn" data-page="0" aria-label="Page 1"></button>
+                <button class="page-btn" data-page="1" aria-label="Page 2"></button>
+                <button class="page-btn" data-page="2" aria-label="Page 3"></button>
+            </div>
+        </div>
+        <div class="content-area">
             <div id="note-body" class="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-blue-400 outline-none text-base py-2 px-0 hidden" contenteditable="true" placeholder="Start writing your note..."></div>
         </div>
     </div>
