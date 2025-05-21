@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
-    // Handle input for ghosting effect
+    // Handle input for ghosting effect and special patterns
     noteBody.addEventListener('input', function(e) {
       const selection = window.getSelection();
       const range = selection.getRangeAt(0);
@@ -62,6 +62,41 @@ document.addEventListener('DOMContentLoaded', function() {
         currentLine = currentNode.textContent;
       } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
         currentLine = currentNode.textContent;
+      }
+
+      // Check if the user just typed '---' (potential separator)
+      if (currentLine.trim() === '---') {
+        // Immediately convert to separator if the user has typed exactly '---'
+        // Get the containing div if we're in a text node
+        let containerNode = currentNode;
+        if (currentNode.nodeType === Node.TEXT_NODE) {
+          containerNode = currentNode.parentNode;
+        }
+        
+        // Only proceed if we have a div container
+        if (containerNode.tagName === 'DIV') {
+          // Create separator
+          const separator = document.createElement('hr');
+          separator.className = 'separator';
+          
+          // Replace the div with the separator
+          containerNode.replaceWith(separator);
+          
+          // Create a new line after separator for the cursor
+          const newLine = document.createElement('div');
+          separator.after(newLine);
+          
+          // Set cursor position on new line
+          const newRange = document.createRange();
+          newRange.setStart(newLine, 0);
+          newRange.setEnd(newLine, 0);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+          
+          // Save current state
+          saveCurrentPage();
+          return;
+        }
       }
 
       // Check for checkbox pattern "- [ ]" or "- [x]" and convert to checkbox
@@ -189,6 +224,9 @@ document.addEventListener('DOMContentLoaded', function() {
         range.setEnd(textNode, 3);
         selection.removeAllRanges();
         selection.addRange(range);
+        
+        // Save the current page state
+        saveCurrentPage();
       }
     });
 
@@ -248,6 +286,24 @@ document.addEventListener('DOMContentLoaded', function() {
           newRange.setEnd(cursorNode, 0);
           selection.removeAllRanges();
           selection.addRange(newRange);
+          
+          // Mark this div as coming from a checkbox (for debugging)
+          newLine.dataset.fromCheckbox = "true";
+          
+          // Save the current page state
+          saveCurrentPage();
+          
+          // Add a one-time input listener to this specific line
+          newLine.addEventListener('input', function onInput(e) {
+            if (newLine.textContent.trim() === '---') {
+              // Convert to separator immediately
+              const separator = document.createElement('hr');
+              separator.className = 'separator';
+              newLine.replaceWith(separator);
+              saveCurrentPage();
+            }
+          });
+          
           return;
         }
       }
@@ -286,6 +342,9 @@ document.addEventListener('DOMContentLoaded', function() {
           range.setEnd(newLine, 0);
           selection.removeAllRanges();
           selection.addRange(range);
+          
+          // Save the current page state
+          saveCurrentPage();
           return;
         }
 
@@ -341,6 +400,56 @@ document.addEventListener('DOMContentLoaded', function() {
           // If not a bullet point or separator, just insert a new line
           document.execCommand('insertLineBreak');
         }
+      }
+
+      // Add a special key handler for force saving (Ctrl+S)
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault(); // Prevent browser save dialog
+        console.log("Force save triggered");
+        
+        // Find all potential separators and convert them
+        const allNodes = noteBody.querySelectorAll('div');
+        let separatorsFound = false;
+        
+        allNodes.forEach(node => {
+          if (node.textContent.trim() === '---') {
+            console.log("Found potential separator to convert");
+            const separator = document.createElement('hr');
+            separator.className = 'separator';
+            node.replaceWith(separator);
+            separatorsFound = true;
+          }
+        });
+        
+        if (separatorsFound) {
+          console.log("Converted separators and saving");
+        } else {
+          console.log("No separators found, saving anyway");
+        }
+        
+        // Force save
+        saveCurrentPage();
+        
+        // Alert the user
+        const savedNotice = document.createElement('div');
+        savedNotice.textContent = "All separators fixed and saved!";
+        savedNotice.style.position = "fixed";
+        savedNotice.style.top = "10px";
+        savedNotice.style.left = "50%";
+        savedNotice.style.transform = "translateX(-50%)";
+        savedNotice.style.backgroundColor = "#4CAF50";
+        savedNotice.style.color = "white";
+        savedNotice.style.padding = "10px 20px";
+        savedNotice.style.borderRadius = "5px";
+        savedNotice.style.zIndex = "1000";
+        document.body.appendChild(savedNotice);
+        
+        // Remove the notice after 2 seconds
+        setTimeout(() => {
+          document.body.removeChild(savedNotice);
+        }, 2000);
+        
+        return false;
       }
     });
   }
@@ -593,6 +702,16 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       pages[currentPage].title = noteTitle.textContent || '';
     }
+    
+    // Special handling for separators: convert any --- text to actual separators before saving
+    const allLines = noteBody.querySelectorAll('div');
+    allLines.forEach(line => {
+      if (line.textContent.trim() === '---') {
+        const separator = document.createElement('hr');
+        separator.className = 'separator';
+        line.replaceWith(separator);
+      }
+    });
     
     pages[currentPage].body = noteBody.innerHTML || '';
     
@@ -905,4 +1024,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     return '';
   }
+
+  // Add a paste event listener to handle pasted content that might include separators
+  noteBody.addEventListener('paste', function(e) {
+    // Let the paste event complete naturally
+    setTimeout(() => {
+      // After paste, check if any line contains '---' and save
+      const content = noteBody.textContent;
+      if (content.includes('---')) {
+        saveCurrentPage();
+      }
+    }, 0);
+  });
 }); 
