@@ -8,14 +8,20 @@ A modern, minimalist note-taking web application focused on clean design, intuit
 
 ## ✨ Features
 
+- **Multi-Page Notes**: Switch between up to 3 separate note pages with animated transitions.
 - **Dynamic Note Creation**: Instantly create, edit, and manage notes in a distraction-free interface.
-- **Markdown Support**: Import and export notes in Markdown format, including checklists and separators.
+- **Markdown Support**: Import and export notes in Markdown format, including checklists, separators, and formatting.
 - **Checklist & Separator Shortcuts**: Type `- ` for checklists, `---` for separators, and press Enter to convert.
+- **Text Formatting**: Use toolbar or Markdown-like shortcuts for **bold**, *italic*, and _underline_ (including combinations).
 - **Title Management**: Click to edit the note title, press Enter to confirm.
 - **Drag & Drop Import**: Drop a `.md` file to instantly load its content.
 - **Export/Import**: Download your notes as Markdown or import from Markdown files.
+- **Search**: Powerful search with highlighting and navigation across all pages.
+- **Theme Toggle**: Switch between light and dark mode instantly.
+- **Clear Cache**: One-click option to clear all notes and settings.
 - **Responsive & Accessible**: Works on desktop and mobile, keyboard accessible.
 - **Beautiful UI**: Powered by Tailwind CSS and DaisyUI for a modern look.
+- **Compact Empty State**: Widget shrinks to a minimal height when empty for a cleaner look.
 
 ---
 
@@ -40,9 +46,14 @@ No build step or server required!
 - **Create a Note**: Click the "What to..." placeholder, type your title, and press Enter.
 - **Add Checklist Items**: Type `- ` at the start of a line, type your item, and press Enter.
 - **Add Separators**: Type `---` on a line and press Enter.
+- **Text Formatting**: Select text and use the toolbar for **bold**, *italic*, or _underline_, or use Markdown-style shortcuts (e.g. `**bold**`, `*italic*`, `_underline_`).
+- **Switch Pages**: Use the page buttons at the top to switch between notes.
 - **Edit**: Click the title or any note content to edit.
 - **Export**: Click the settings (logo) and choose "Export to Markdown".
 - **Import**: Click the settings (logo) and choose "Import from Markdown" or drag a `.md` file onto the app.
+- **Search**: Use the search bar (top right) to find and highlight text across all pages, with navigation.
+- **Theme**: Toggle light/dark mode from the settings dropdown.
+- **Clear Cache**: Use the settings dropdown to clear all notes and settings instantly.
 
 ### Markdown Syntax
 
@@ -52,6 +63,10 @@ No build step or server required!
 | `- [x]`  | Checklist (checked)        | `- [x] Done item`      |
 | `---`    | Horizontal separator       | `---`                  |
 | `##`     | Heading                    | `## Subheading`        |
+| `**text**` | Bold                     | `**bold**`             |
+| `*text*`  | Italic                    | `*italic*`             |
+| `_text_`  | Underline                 | `_underline_`          |
+| Combinations | Bold/Italic/Underline   | `***_combo_***`        |
 
 ---
 
@@ -79,11 +94,16 @@ src/
 
 ## 💡 Future Enhancements
 
-- [ ] Local storage for note persistence
-- [ ] More Markdown formatting options
-- [ ] Theme customization (dark mode, etc.)
+- [x] Local storage for note persistence
+- [x] Multi-page support
+- [x] More Markdown formatting options (bold, italic, underline)
+- [x] Theme customization (dark mode)
+- [x] Search across notes
+- [x] Clear cache/reset option
+- [x] Compact/empty state UI
 - [ ] Mobile UX improvements
-- [ ] Multi-note support
+- [ ] More export/import options
+- [ ] Richer formatting (code, links, etc.)
 
 ---
 
