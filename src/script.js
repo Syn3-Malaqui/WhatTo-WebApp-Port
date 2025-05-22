@@ -1349,14 +1349,6 @@ document.addEventListener('DOMContentLoaded', function() {
       let cleanedText = text.replace(/[\u200B-\u200D\uFEFF\u0000-\u001F]/g, '');
       console.log("Cleaned text:", cleanedText);
       
-      // Special case for the ***_text_*** pattern which seems problematic
-      if (cleanedText.match(/\*\*\*_.*?_\*\*\*/)) {
-        console.log("Found complex pattern: ***_text_***");
-        cleanedText = cleanedText.replace(/\*\*\*_(.+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
-        console.log("After special case handling:", cleanedText);
-        return cleanedText;
-      }
-      
       // Process complex patterns with all three formats
       let processedText = cleanedText;
       
@@ -1365,31 +1357,31 @@ document.addEventListener('DOMContentLoaded', function() {
         // Process from inside out, following hierarchy: underline → italic → bold
         
         // Pattern 1: ***_text_*** (bold+italic+underline)
-        text = text.replace(/\*\*\*_(.+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+        text = text.replace(/\*\*\*_([^*]*?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
         
         // Pattern 2: **_*text*_** (bold+underline+italic)
-        text = text.replace(/\*\*_\*(.+?)\*_\*\*/g, '<strong><u><em>$1</em></u></strong>');
+        text = text.replace(/\*\*_\*([^*]*?)\*_\*\*/g, '<strong><u><em>$1</em></u></strong>');
         
         // Pattern 3: _***text***_ (underline+bold+italic)
-        text = text.replace(/_\*\*\*(.+?)\*\*\*_/g, '<u><strong><em>$1</em></strong></u>');
+        text = text.replace(/_\*\*\*([^*]*?)\*\*\*_/g, '<u><strong><em>$1</em></strong></u>');
         
         // Pattern 4: *_**text**_* (italic+underline+bold)
-        text = text.replace(/\*_\*\*(.+?)\*\*_\*/g, '<em><u><strong>$1</strong></u></em>');
+        text = text.replace(/\*_\*\*([^*]*?)\*\*_\*/g, '<em><u><strong>$1</strong></u></em>');
         
         // Pattern 5: _**text**_ (underline+bold)
-        text = text.replace(/_\*\*(.+?)\*\*_/g, '<u><strong>$1</strong></u>');
+        text = text.replace(/_\*\*([^*]*?)\*\*_/g, '<u><strong>$1</strong></u>');
         
         // Pattern 6: _*text*_ (underline+italic)
-        text = text.replace(/_\*(.+?)\*_/g, '<u><em>$1</em></u>');
+        text = text.replace(/_\*([^*]*?)\*_/g, '<u><em>$1</em></u>');
         
         // Pattern 7: ***text*** (bold+italic)
-        text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+        text = text.replace(/\*\*\*([^*]*?)\*\*\*/g, '<strong><em>$1</em></strong>');
         
         // Pattern 8: **_text_** (bold+underline)
-        text = text.replace(/\*\*_(.+?)_\*\*/g, '<strong><u>$1</u></strong>');
+        text = text.replace(/\*\*_([^_]*?)_\*\*/g, '<strong><u>$1</u></strong>');
         
         // Pattern 9: *_text_* (italic+underline)
-        text = text.replace(/\*_(.+?)_\*/g, '<em><u>$1</u></em>');
+        text = text.replace(/\*_([^_]*?)_\*/g, '<em><u>$1</u></em>');
         
         return text;
       }
@@ -1426,7 +1418,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let processedMarkdown = markdown;
         
         // Handle ***_text_*** pattern explicitly
-        processedMarkdown = processedMarkdown.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, (match, p1) => {
+        processedMarkdown = processedMarkdown.replace(/\*\*\*_([^*]*?)_\*\*\*/g, (match, p1) => {
           console.log("Found ***_text_*** pattern:", match);
           // Clean the text from zero-width characters
           const cleanText = p1.replace(/[\u200B-\u200D\uFEFF\u0000-\u001F]/g, '');
@@ -1434,7 +1426,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Direct replacement of problematic patterns in the entire content
-        processedMarkdown = processedMarkdown.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, (match, p1) => {
+        processedMarkdown = processedMarkdown.replace(/\*\*\*_([^*]*?)_\*\*\*/g, (match, p1) => {
           console.log("Direct replacement of ***_text_*** pattern");
           return `<strong><em><u>${p1}</u></em></strong>`;
         });
@@ -1484,7 +1476,7 @@ document.addEventListener('DOMContentLoaded', function() {
               }
               // Special handling for complex formatting in checkbox text
               if (text.includes('***_') && text.includes('_***')) {
-                text = text.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+                text = text.replace(/\*\*\*_([^*]*?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
               } else {
                 text = formatMarkdown(text);
               }
@@ -1516,7 +1508,7 @@ document.addEventListener('DOMContentLoaded', function() {
               // Special handling for complex formatting in paragraphs
               let formattedText = currentLine.trim();
               if (formattedText.includes('***_') && formattedText.includes('_***')) {
-                formattedText = formattedText.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+                formattedText = formattedText.replace(/\*\*\*_([^*]*?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
               } else {
                 formattedText = formatMarkdown(formattedText);
               }
@@ -1535,7 +1527,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Special handling for complex formatting in final paragraph
             let formattedText = currentLine.trim();
             if (formattedText.includes('***_') && formattedText.includes('_***')) {
-              formattedText = formattedText.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+              formattedText = formattedText.replace(/\*\*\*_([^*]*?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
             } else {
               formattedText = formatMarkdown(formattedText);
             }
@@ -1752,16 +1744,16 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Complex combined patterns (ordered by specificity)
       // Bold + Italic + Underline: ***_text_***
-      processedText = processedText.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+      processedText = processedText.replace(/\*\*\*_([^*]*?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
       
       // Bold + Underline: **_text_**
-      processedText = processedText.replace(/\*\*_([^*_]+?)_\*\*/g, '<strong><u>$1</u></strong>');
+      processedText = processedText.replace(/\*\*_([^_]*?)_\*\*/g, '<strong><u>$1</u></strong>');
       
       // Italic + Underline: *_text_*
-      processedText = processedText.replace(/\*_([^*_]+?)_\*/g, '<em><u>$1</u></em>');
+      processedText = processedText.replace(/\*_([^_]*?)_\*/g, '<em><u>$1</u></em>');
       
       // Bold + Italic: ***text***
-      processedText = processedText.replace(/\*\*\*([^*]+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      processedText = processedText.replace(/\*\*\*([^*]*?)\*\*\*/g, '<strong><em>$1</em></strong>');
       
       // Simple patterns
       // Bold: **text**
