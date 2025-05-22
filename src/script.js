@@ -45,33 +45,55 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function enableDarkMode() {
-    htmlElement.classList.add('dark');
-    if (headerLogo) {
-      headerLogo.src = 'assets/header3.svg';
-    }
+    // Apply a transition class first
+    document.body.classList.add('theme-transitioning');
     
-    // Update theme toggle switch state
-    const toggleSwitch = document.querySelector('.theme-toggle-switch');
-    if (toggleSwitch) {
-      toggleSwitch.classList.add('active');
-    }
-    
-    localStorage.setItem('theme', 'dark');
+    // Use setTimeout to ensure transitions have a chance to apply
+    setTimeout(() => {
+      htmlElement.classList.add('dark');
+      if (headerLogo) {
+        headerLogo.src = 'assets/header3.svg';
+      }
+      
+      // Update theme toggle switch state
+      const toggleSwitch = document.querySelector('.theme-toggle-switch');
+      if (toggleSwitch) {
+        toggleSwitch.classList.add('active');
+      }
+      
+      localStorage.setItem('theme', 'dark');
+      
+      // Remove the transition class after transition completes
+      setTimeout(() => {
+        document.body.classList.remove('theme-transitioning');
+      }, 300);
+    }, 10);
   }
   
   function disableDarkMode() {
-    htmlElement.classList.remove('dark');
-    if (headerLogo) {
-      headerLogo.src = 'assets/header.svg';
-    }
+    // Apply a transition class first
+    document.body.classList.add('theme-transitioning');
     
-    // Update theme toggle switch state
-    const toggleSwitch = document.querySelector('.theme-toggle-switch');
-    if (toggleSwitch) {
-      toggleSwitch.classList.remove('active');
-    }
-    
-    localStorage.setItem('theme', 'light');
+    // Use setTimeout to ensure transitions have a chance to apply
+    setTimeout(() => {
+      htmlElement.classList.remove('dark');
+      if (headerLogo) {
+        headerLogo.src = 'assets/header.svg';
+      }
+      
+      // Update theme toggle switch state
+      const toggleSwitch = document.querySelector('.theme-toggle-switch');
+      if (toggleSwitch) {
+        toggleSwitch.classList.remove('active');
+      }
+      
+      localStorage.setItem('theme', 'light');
+      
+      // Remove the transition class after transition completes
+      setTimeout(() => {
+        document.body.classList.remove('theme-transitioning');
+      }, 300);
+    }, 10);
   }
 
   const titleBtn = document.getElementById('title-btn');

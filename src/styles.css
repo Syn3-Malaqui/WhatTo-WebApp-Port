@@ -2,6 +2,7 @@
 
 html, body {
   font-family: 'Poppins', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #note-title, #title-input {
@@ -89,14 +90,24 @@ html, body {
 #settings-dropdown {
   opacity: 0;
   transform: scale(0.95) translateY(-10px);
-  transition: all 0.2s ease-out;
+  transition: all 0.2s ease-out, background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
   pointer-events: none;
+  background-color: white;
+  color: #374151;
+  border: 1px solid #e5e7eb;
 }
 
 #settings-dropdown.show {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+}
+
+/* Add dark mode styles for settings dropdown */
+.dark #settings-dropdown {
+  background-color: #1f2937;
+  color: #f3f4f6;
+  border-color: #374151;
 }
 
 #note-title-area {
@@ -393,15 +404,17 @@ html, body {
 }
 
 .dark .search-result-counter {
-  color: #9ca3af;
+  color: #ffffff;
 }
 
 .dark .search-highlight {
-  background-color: rgba(229, 231, 235, 0.2);
+  background-color: #ffffff;
+  color: #000000;
 }
 
 .dark .search-highlight-current {
-  background-color: rgba(249, 250, 251, 0.4);
+    background-color: #ffffff;
+    color: #111827;
 }
 
 .dark .search-counter {
@@ -411,4 +424,58 @@ html, body {
 
 .dark .theme-toggle-switch.active {
   background-color: #3b82f6;
+}
+
+/* Dark theme checkbox overrides - Attempt 4: More comprehensive for checkbox-primary */
+.dark .checkbox-primary {
+  background-color: transparent !important;
+  border-color: #ffffff !important; /* White border for unchecked box */
+  --p: transparent !important; /* Neutralize DaisyUI primary color variable */
+  --pf: transparent !important; /* Neutralize DaisyUI primary-focus color variable */
+  --chkbg: transparent !important; /* Ensure checkbox background var is transparent */
+  --chkfg: #ffffff !important; /* Checkmark color for unchecked (usually not visible but set for consistency) */
+  color: #ffffff !important; /* Text color / SVG fill for unchecked (usually not visible) */
+}
+
+.dark .checkbox-primary:checked {
+  background-color: #ffffff !important; /* White background for the checked box */
+  border-color: #000000 !important;     /* Black border around the white box for contrast */
+  color: #000000 !important;           /* Black color for the checkmark SVG/font */
+  --p: #ffffff !important;  /* Override DaisyUI primary to affect background if it uses this */
+  --pc: #000000 !important; /* Override DaisyUI primary-content for checkmark color */
+  --chkbg: #ffffff !important; /* Explicitly set checkbox background variable to white */
+  --chkfg: #000000 !important; /* Explicitly set checkmark foreground variable to black */
+}
+
+/* Add smooth transitions for dropdown elements */
+#settings-dropdown .dropdown-item,
+#settings-dropdown button,
+#settings-dropdown a {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Style for dropdown items in light mode */
+#settings-dropdown .dropdown-item:hover {
+  background-color: #f3f4f6;
+}
+
+/* Style for dropdown items in dark mode */
+.dark #settings-dropdown .dropdown-item:hover {
+  background-color: #374151;
+}
+
+/* Add specific transitions for the dropdown and all children during theme changes */
+.theme-transitioning #settings-dropdown,
+.theme-transitioning #settings-dropdown *,
+#settings-dropdown,
+#settings-dropdown * {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+/* Additional specific transitions for the dropdown elements */
+#settings-dropdown button,
+#settings-dropdown .dropdown-item,
+#settings-dropdown a,
+#settings-dropdown div {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
 } 
