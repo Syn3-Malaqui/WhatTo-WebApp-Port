@@ -1,6 +1,34 @@
 document.addEventListener('DOMContentLoaded', function() {
   console.log('WhatTo WebApp is running!'); 
 
+  // Helper function to show simple notifications
+  function showSimpleNotification(message, duration = 2000) {
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.position = 'fixed';
+    notification.style.top = '10px';
+    notification.style.left = '50%';
+    notification.style.transform = 'translateX(-50%)';
+    notification.style.backgroundColor = '#4CAF50';
+    notification.style.color = 'white';
+    notification.style.padding = '10px 20px';
+    notification.style.borderRadius = '5px';
+    notification.style.zIndex = '1000';
+    notification.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    notification.style.transition = 'opacity 0.3s ease-in-out';
+    document.body.appendChild(notification);
+    
+    // Remove the notification after the specified duration
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          document.body.removeChild(notification);
+        }
+      }, 300);
+    }, duration);
+  }
+
   // Theme management
   const headerLogo = document.getElementById('header-logo');
   const themeToggle = document.getElementById('theme-toggle');
@@ -732,6 +760,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const settingsDropdown = document.getElementById('settings-dropdown');
   const exportMarkdownBtn = document.getElementById('export-markdown');
   const importMarkdownInput = document.getElementById('import-markdown');
+  const clearCacheBtn = document.getElementById('clear-cache');
 
   // Toggle dropdown
   function toggleSettings(e) {
@@ -775,6 +804,41 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   });
+
+  // Clear cache functionality
+  if (clearCacheBtn) {
+    clearCacheBtn.addEventListener('click', () => {
+      // Show confirmation dialog
+      if (confirm('Are you sure you want to clear all saved data? This will delete all your notes and settings.')) {
+        // Clear all localStorage data
+        localStorage.clear();
+        
+        // Immediately clear the current page contents
+        noteTitle.textContent = '';
+        noteTitle.classList.add('hidden');
+        titleBtn.classList.remove('hidden');
+        noteBody.innerHTML = '';
+        noteBody.classList.add('hidden');
+        
+        // Reset pages array to empty state
+        for (let i = 0; i < NUM_PAGES; i++) {
+          pages[i] = { title: '', body: '' };
+        }
+        
+        // Update UI to reflect cleared state
+        currentPage = 0;
+        updatePageBtns();
+        
+        // Show notification using the existing function
+        showSimpleNotification('Cache cleared successfully!');
+        
+        // Reload the page after a short delay
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
+    });
+  }
 
   // Multi-page logic
   const pageBtns = Array.from(document.querySelectorAll('.page-btn'));
@@ -858,11 +922,24 @@ document.addEventListener('DOMContentLoaded', function() {
       const titleHeight = titleArea.offsetHeight;
       const contentHeight = contentArea.scrollHeight;
       
-      // Set a minimum height for the container
-      const minHeight = 250;
+      // Check if the widget is empty (no title and no body content)
+      const isWidgetEmpty = (
+        (noteTitle.classList.contains('hidden') || noteTitle.textContent.trim() === '') && 
+        (noteBody.classList.contains('hidden') || noteBody.innerHTML.trim() === '')
+      );
+      
+      // Add or remove empty class based on content state
+      if (isWidgetEmpty) {
+        container.classList.add('empty');
+      } else {
+        container.classList.remove('empty');
+      }
+      
+      // Set a minimum height for the container - smaller when empty
+      const minHeight = isWidgetEmpty ? 140 : 250;
       
       // Set the container height based on content with a minimum
-      const naturalHeight = titleHeight + contentHeight + 12;
+      const naturalHeight = titleHeight + contentHeight + (isWidgetEmpty ? 0 : 12);
       const targetHeight = Math.max(naturalHeight, minHeight);
       
       // Set back to the current height before transitioning

@@ -56,8 +56,13 @@ html, body {
   padding: 0 1.5rem 0.75rem;
   display: flex;
   flex-direction: column;
-  transition: opacity 0.3s ease, transform 0.3s ease, height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: opacity, transform, height;
+  transition: opacity 0.3s ease, transform 0.3s ease, height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+  will-change: opacity, transform, height, padding;
+}
+
+/* Empty widget state */
+.app-container.empty .content-area {
+  padding-bottom: 0;
 }
 
 /* Fade transition for page content */
@@ -117,8 +122,20 @@ html, body {
   min-width: 0;
   padding: 1rem 1.5rem 0.5rem;
   overflow: hidden;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
-  will-change: transform, opacity;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.3s ease;
+  will-change: transform, opacity, padding;
+}
+
+/* Adjust title area padding when widget is empty */
+.app-container.empty #note-title-area {
+  padding: 0.75rem 1.5rem 0.25rem;
+}
+
+/* Adjust title button appearance when widget is empty */
+.app-container.empty #title-btn {
+  font-size: 1.5rem;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 #note-title-area > .flex-1 {
