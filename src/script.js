@@ -1,5 +1,79 @@
 document.addEventListener('DOMContentLoaded', function() {
   console.log('WhatTo WebApp is running!'); 
+
+  // Theme management
+  const headerLogo = document.getElementById('header-logo');
+  const themeToggle = document.getElementById('theme-toggle');
+  const htmlElement = document.documentElement;
+  
+  // Check for saved theme preference
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    enableDarkMode();
+  } else {
+    disableDarkMode();
+  }
+  
+  // Toggle theme when the button is clicked
+  if (themeToggle) {
+    themeToggle.addEventListener('click', function() {
+      const wasDropdownOpen = settingsDropdown.classList.contains('show');
+      
+      // Toggle theme
+      if (htmlElement.classList.contains('dark')) {
+        disableDarkMode();
+      } else {
+        enableDarkMode();
+      }
+      
+      // Force dropdown refresh
+      if (wasDropdownOpen) {
+        // Hide dropdown
+        settingsDropdown.classList.remove('show');
+        settingsDropdown.classList.add('hidden');
+        
+        // Force browser to reflow the element
+        void settingsDropdown.offsetHeight;
+        
+        // Reopen dropdown with new styling
+        setTimeout(() => {
+          settingsDropdown.classList.remove('hidden');
+          settingsDropdown.classList.add('show');
+        }, 50);
+      }
+    });
+  }
+  
+  function enableDarkMode() {
+    htmlElement.classList.add('dark');
+    if (headerLogo) {
+      headerLogo.src = 'assets/header3.svg';
+    }
+    
+    // Update theme toggle switch state
+    const toggleSwitch = document.querySelector('.theme-toggle-switch');
+    if (toggleSwitch) {
+      toggleSwitch.classList.add('active');
+    }
+    
+    localStorage.setItem('theme', 'dark');
+  }
+  
+  function disableDarkMode() {
+    htmlElement.classList.remove('dark');
+    if (headerLogo) {
+      headerLogo.src = 'assets/header.svg';
+    }
+    
+    // Update theme toggle switch state
+    const toggleSwitch = document.querySelector('.theme-toggle-switch');
+    if (toggleSwitch) {
+      toggleSwitch.classList.remove('active');
+    }
+    
+    localStorage.setItem('theme', 'light');
+  }
+
   const titleBtn = document.getElementById('title-btn');
   const titleInput = document.getElementById('title-input');
   const noteTitle = document.getElementById('note-title');
@@ -633,7 +707,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Settings functionality
-  const headerLogo = document.getElementById('header-logo');
   const settingsDropdown = document.getElementById('settings-dropdown');
   const exportMarkdownBtn = document.getElementById('export-markdown');
   const importMarkdownInput = document.getElementById('import-markdown');
@@ -648,19 +721,17 @@ document.addEventListener('DOMContentLoaded', function() {
       settingsDropdown.style.top = `${rect.bottom + 8}px`;
       settingsDropdown.style.left = `${rect.left}px`;
       
-      // Show the dropdown with animation
-      settingsDropdown.classList.remove('hidden');
+      settingsDropdown.classList.remove('opacity-0', 'invisible'); // Make it ready to be shown
       // Use requestAnimationFrame to ensure the transition works
       requestAnimationFrame(() => {
         settingsDropdown.classList.add('show');
       });
     } else {
-      // Hide the dropdown with animation
       settingsDropdown.classList.remove('show');
-      // Wait for animation to complete before hiding
+      // Wait for animation to complete before making it invisible and opacity-0
       setTimeout(() => {
-        settingsDropdown.classList.add('hidden');
-      }, 200);
+        settingsDropdown.classList.add('opacity-0', 'invisible');
+      }, 300); // Match duration-300
     }
   }
 
@@ -677,8 +748,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (settingsDropdown.classList.contains('show')) {
         settingsDropdown.classList.remove('show');
         setTimeout(() => {
-          settingsDropdown.classList.add('hidden');
-        }, 200);
+          settingsDropdown.classList.add('opacity-0', 'invisible');
+        }, 300); // Match duration-300
       }
     }
   });
@@ -1850,5 +1921,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const regex = new RegExp(escapeRegExp(subString), 'gi');
     const matches = string.match(regex);
     return matches ? matches.length : 0;
+  }
+
+  // Also make sure the theme toggle button is properly initialized in the settings section
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  if (themeToggleBtn) {
+    // Set initial state based on current theme
+    if (document.documentElement.classList.contains('dark')) {
+      themeToggleBtn.querySelector('.theme-toggle-switch').classList.add('active');
+    }
   }
 }); 

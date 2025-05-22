@@ -95,7 +95,7 @@ html, body {
 
 #settings-dropdown.show {
   opacity: 1;
-  transform: scale(1) translateY(0);
+  visibility: visible;
   pointer-events: auto;
 }
 
@@ -290,4 +290,125 @@ html, body {
   white-space: nowrap;
   font-family: 'Poppins', sans-serif;
   font-weight: 500;
+}
+
+/* Add dark theme styles at the end of the file */
+
+/* Theme toggle switch styles */
+.theme-toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: #d1d5db;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-toggle-switch.active {
+  background-color: #3b82f6;
+}
+
+.theme-toggle-slider {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-toggle-switch.active .theme-toggle-slider {
+  transform: translateX(20px);
+}
+
+/* Dark theme styles */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+.dark .app-container {
+  background-color: #111827;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+}
+
+.dark #title-btn {
+  color: #9ca3af;
+}
+
+.dark #title-btn:hover {
+  color: #d1d5db;
+}
+
+.dark .page-btn {
+  background: #4b5563;
+  border-color: #6b7280;
+}
+
+.dark .page-btn:hover {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.dark .page-btn.active {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.dark .separator {
+  background-color: #374151;
+}
+
+.dark .search-bar {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+.dark .search-bar:focus {
+  border-color: #f3f4f6;
+  box-shadow: 0 0 0 2px rgba(229, 231, 235, 0.3);
+}
+
+.dark .search-nav {
+  background-color: #1f2937;
+  border-color: #374151;
+}
+
+.dark .search-nav-btn {
+  background-color: #374151;
+  color: #d1d5db;
+}
+
+.dark .search-nav-btn:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.dark .search-result-counter {
+  color: #9ca3af;
+}
+
+.dark .search-highlight {
+  background-color: rgba(229, 231, 235, 0.2);
+}
+
+.dark .search-highlight-current {
+  background-color: rgba(249, 250, 251, 0.4);
+}
+
+.dark .search-counter {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.dark .theme-toggle-switch.active {
+  background-color: #3b82f6;
 } 
