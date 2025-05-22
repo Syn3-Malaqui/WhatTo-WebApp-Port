@@ -1104,23 +1104,62 @@ document.addEventListener('DOMContentLoaded', function() {
     exportMarkdownBtn.addEventListener('click', () => {
       saveCurrentPage();
       let markdown = '';
+      let hasFormattedContent = false;
+      
       pages.forEach((page, idx) => {
         if (!page.title && !page.body) return;
         if (idx > 0) markdown += '\n<!-- whatto:page -->\n\n';
         markdown += `# ${page.title || 'Untitled'}\n\n`;
+        
+        // Debug: Log the HTML content before processing
+        console.log("HTML content before export:", page.body);
+        
+        // Look for formatting tags directly and log them
+        const boldCount = (page.body.match(/<(b|strong)[^>]*>/gi) || []).length;
+        const italicCount = (page.body.match(/<(i|em)[^>]*>/gi) || []).length;
+        const underlineCount = (page.body.match(/<u[^>]*>/gi) || []).length;
+        
+        console.log(`Found formatting tags - Bold: ${boldCount}, Italic: ${italicCount}, Underline: ${underlineCount}`);
+        
+        if (boldCount > 0 || italicCount > 0 || underlineCount > 0) {
+          hasFormattedContent = true;
+          console.log("Page has formatted content!");
+        }
+        
         // Use a temp element to parse HTML and reuse processNode
         const temp = document.createElement('div');
         temp.innerHTML = page.body;
+        
+        // Debug: Log the HTML structure
+        console.log("HTML structure:", temp.innerHTML);
+        
+        let pageContent = '';
         for (let node of temp.childNodes) {
-          markdown += processNode(node);
+          const processed = convertNodeToMarkdown(node);
+          pageContent += processed;
+          
+          // Debug: Log each node and its processed output
+          console.log("Processing node:", node.nodeName, node, "->", processed);
         }
+        
+        markdown += pageContent;
+        
+        // Debug: Log the final markdown for this page
+        console.log("Final markdown for page:", pageContent);
       });
+      
       markdown = markdown
         .replace(/\n{3,}/g, '\n\n')
         .replace(/\s+$/gm, '')
         .replace(/^\s+/gm, '')
         .replace(/([^\n])\n([^\n])/g, '$1\n$2')
         .trim();
+      
+      // Check if there are formatting marks in the final markdown
+      if (markdown.includes('**') || markdown.includes('*') || markdown.includes('_')) {
+        hasFormattedContent = true;
+      }
+      
       const blob = new Blob([markdown], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1130,11 +1169,171 @@ document.addEventListener('DOMContentLoaded', function() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      
+      // Show confirmation message about formatting
+      if (hasFormattedContent) {
+        showSimpleNotification('Exported with text formatting preserved!');
+      }
     });
+  }
+  
+  // Function to convert HTML nodes to Markdown with support for stacked formatting
+  function convertNodeToMarkdown(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent;
+    }
+    
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      // Get all child content first
+      let content = '';
+      for (let child of node.childNodes) {
+        content += convertNodeToMarkdown(child);
+      }
+      
+      // Check for specific element types
+      switch (node.nodeName.toUpperCase()) {
+        case 'DIV':
+          // Check if it's a checkbox
+          if (node.classList.contains('flex') && node.classList.contains('items-center')) {
+            const input = node.querySelector('input[type="checkbox"]');
+            const span = node.querySelector('span');
+            if (input && span) {
+              const isChecked = input.checked;
+              return `- [${isChecked ? 'x' : ' '}] ${convertNodeToMarkdown(span)}\n`;
+            }
+          }
+          
+          // Special case for divs with only dash content
+          const divText = node.textContent.replace(/\u00a0/g, ' ').trim();
+          if (divText === '-' || divText === '') {
+            return '\n';
+          }
+          
+          // General div handling - add newline after content if not already there
+          return content.endsWith('\n') ? content : content + '\n';
+          
+        case 'INPUT':
+          if (node.type === 'checkbox') {
+            const isChecked = node.checked;
+            return `- [${isChecked ? 'x' : ' '}] `;
+          }
+          return '';
+          
+        case 'HR':
+          return '\n---\n\n';
+          
+        case 'BR':
+          return '\n';
+          
+        case 'P':
+          return content + '\n\n';
+          
+        case 'H3':
+          return `\n## ${content}\n\n`;
+          
+        case 'B':
+        case 'STRONG':
+          // Bold
+          console.log("Found bold element:", node, "with content:", content);
+          return `**${content}**`;
+          
+        case 'I':
+        case 'EM':
+          // Italic
+          console.log("Found italic element:", node, "with content:", content);
+          return `*${content}*`;
+          
+        case 'U':
+          // Underline
+          console.log("Found underline element:", node, "with content:", content);
+          return `_${content}_`;
+          
+        case 'SPAN':
+          // Just return the content for spans
+          return content;
+          
+        default:
+          // Return content for any other elements
+          return content;
+      }
+    }
+    
+    // Default case
+    return '';
   }
 
   // Update import logic to support multi-page import
   if (importMarkdownInput) {
+    // Helper function to convert markdown formatting to HTML with proper hierarchy
+    function formatMarkdown(text) {
+      console.log("Original markdown text:", text);
+      
+      // Clean text by removing zero-width characters that may interfere with regex
+      let cleanedText = text.replace(/[\u200B-\u200D\uFEFF\u0000-\u001F]/g, '');
+      console.log("Cleaned text:", cleanedText);
+      
+      // Special case for the ***_text_*** pattern which seems problematic
+      if (cleanedText.match(/\*\*\*_.*?_\*\*\*/)) {
+        console.log("Found complex pattern: ***_text_***");
+        cleanedText = cleanedText.replace(/\*\*\*_(.+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+        console.log("After special case handling:", cleanedText);
+        return cleanedText;
+      }
+      
+      // Process complex patterns with all three formats
+      let processedText = cleanedText;
+      
+      // Define a function to handle complex nested formats
+      function processNestedFormats(text) {
+        // Process from inside out, following hierarchy: underline → italic → bold
+        
+        // Pattern 1: ***_text_*** (bold+italic+underline)
+        text = text.replace(/\*\*\*_(.+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+        
+        // Pattern 2: **_*text*_** (bold+underline+italic)
+        text = text.replace(/\*\*_\*(.+?)\*_\*\*/g, '<strong><u><em>$1</em></u></strong>');
+        
+        // Pattern 3: _***text***_ (underline+bold+italic)
+        text = text.replace(/_\*\*\*(.+?)\*\*\*_/g, '<u><strong><em>$1</em></strong></u>');
+        
+        // Pattern 4: *_**text**_* (italic+underline+bold)
+        text = text.replace(/\*_\*\*(.+?)\*\*_\*/g, '<em><u><strong>$1</strong></u></em>');
+        
+        // Pattern 5: _**text**_ (underline+bold)
+        text = text.replace(/_\*\*(.+?)\*\*_/g, '<u><strong>$1</strong></u>');
+        
+        // Pattern 6: _*text*_ (underline+italic)
+        text = text.replace(/_\*(.+?)\*_/g, '<u><em>$1</em></u>');
+        
+        // Pattern 7: ***text*** (bold+italic)
+        text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+        
+        // Pattern 8: **_text_** (bold+underline)
+        text = text.replace(/\*\*_(.+?)_\*\*/g, '<strong><u>$1</u></strong>');
+        
+        // Pattern 9: *_text_* (italic+underline)
+        text = text.replace(/\*_(.+?)_\*/g, '<em><u>$1</u></em>');
+        
+        return text;
+      }
+      
+      // First pass for complex nested formats
+      processedText = processNestedFormats(processedText);
+      
+      // Process simple formats in order of hierarchy
+      // 1. Underline (_text_)
+      processedText = processedText.replace(/_([^_<>]*?)_/g, '<u>$1</u>');
+      
+      // 2. Italic (*text*)
+      processedText = processedText.replace(/\*([^*<>]*?)\*/g, '<em>$1</em>');
+      
+      // 3. Bold (**text**)
+      processedText = processedText.replace(/\*\*([^*<>]*?)\*\*/g, '<strong>$1</strong>');
+      
+      console.log("Processed markdown:", processedText);
+      return processedText;
+    }
+
     importMarkdownInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -1142,8 +1341,29 @@ document.addEventListener('DOMContentLoaded', function() {
       const reader = new FileReader();
       reader.onload = (event) => {
         const markdown = event.target.result;
+        
+        // Log the raw markdown for debugging
+        console.log("Raw imported markdown:", markdown);
+        
+        // Pre-process content to handle problematic patterns
+        let processedMarkdown = markdown;
+        
+        // Handle ***_text_*** pattern explicitly
+        processedMarkdown = processedMarkdown.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, (match, p1) => {
+          console.log("Found ***_text_*** pattern:", match);
+          // Clean the text from zero-width characters
+          const cleanText = p1.replace(/[\u200B-\u200D\uFEFF\u0000-\u001F]/g, '');
+          return `<strong><em><u>${cleanText}</u></em></strong>`;
+        });
+        
+        // Direct replacement of problematic patterns in the entire content
+        processedMarkdown = processedMarkdown.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, (match, p1) => {
+          console.log("Direct replacement of ***_text_*** pattern");
+          return `<strong><em><u>${p1}</u></em></strong>`;
+        });
+        
         // Split on custom page marker
-        const pageBlocks = markdown.split(/\n?<!-- whatto:page -->\n?/);
+        const pageBlocks = processedMarkdown.split(/\n?<!-- whatto:page -->\n?/);
         // If only one page, fallback to old behavior
         for (let i = 0; i < NUM_PAGES; i++) {
           pages[i] = { title: '', body: '' };
@@ -1164,18 +1384,18 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (trimmedLine.startsWith('## ')) {
               if (currentLine) {
                 const paragraph = document.createElement('p');
-                paragraph.textContent = currentLine.trim();
+                paragraph.innerHTML = formatMarkdown(currentLine.trim());
                 noteBodyTemp.appendChild(paragraph);
                 currentLine = '';
               }
               const heading = document.createElement('h3');
               heading.className = 'text-xl font-semibold mt-4 mb-2';
-              heading.textContent = trimmedLine.substring(3).trim();
+              heading.innerHTML = formatMarkdown(trimmedLine.substring(3).trim());
               noteBodyTemp.appendChild(heading);
             } else if (trimmedLine.startsWith('- [')) {
               if (currentLine) {
                 const paragraph = document.createElement('p');
-                paragraph.textContent = currentLine.trim();
+                paragraph.innerHTML = formatMarkdown(currentLine.trim());
                 noteBodyTemp.appendChild(paragraph);
                 currentLine = '';
               }
@@ -1185,6 +1405,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 text = lines[lineIdx + 1].trim();
                 lineIdx++;
               }
+              // Special handling for complex formatting in checkbox text
+              if (text.includes('***_') && text.includes('_***')) {
+                text = text.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+              } else {
+                text = formatMarkdown(text);
+              }
+              
               const checkbox = document.createElement('div');
               checkbox.className = 'flex items-center gap-2 my-1';
               checkbox.innerHTML = `\n                <input type="checkbox" class="checkbox checkbox-primary" ${checked ? 'checked="checked"' : ''}>\n                <span class="ml-2">${text}</span>\n              `;
@@ -1209,8 +1436,16 @@ document.addEventListener('DOMContentLoaded', function() {
               }
               inParagraph = true;
             } else if (currentLine) {
+              // Special handling for complex formatting in paragraphs
+              let formattedText = currentLine.trim();
+              if (formattedText.includes('***_') && formattedText.includes('_***')) {
+                formattedText = formattedText.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+              } else {
+                formattedText = formatMarkdown(formattedText);
+              }
+              
               const paragraph = document.createElement('p');
-              paragraph.textContent = currentLine.trim();
+              paragraph.innerHTML = formattedText;
               noteBodyTemp.appendChild(paragraph);
               currentLine = '';
               inParagraph = false;
@@ -1220,8 +1455,16 @@ document.addEventListener('DOMContentLoaded', function() {
             isFirstLine = false;
           });
           if (currentLine) {
+            // Special handling for complex formatting in final paragraph
+            let formattedText = currentLine.trim();
+            if (formattedText.includes('***_') && formattedText.includes('_***')) {
+              formattedText = formattedText.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+            } else {
+              formattedText = formatMarkdown(formattedText);
+            }
+            
             const paragraph = document.createElement('p');
-            paragraph.textContent = currentLine.trim();
+            paragraph.innerHTML = formattedText;
             noteBodyTemp.appendChild(paragraph);
           }
           pages[idx].title = title;
@@ -1240,70 +1483,118 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Define processNode at top-level so it can be reused for export/import
   function processNode(node) {
+    // For debugging
+    console.log("Processing node type:", node.nodeType, "nodeName:", node.nodeName);
+    
     if (node.nodeType === Node.TEXT_NODE) {
       return node.textContent;
     }
+    
     if (node.nodeType === Node.ELEMENT_NODE) {
-      if (node.tagName === 'DIV') {
-        // Checkbox line (already handled above)
-        if (node.classList.contains('flex') && node.classList.contains('items-center') && node.classList.contains('gap-2')) {
+      // Get all child content first
+      let content = '';
+      for (let child of node.childNodes) {
+        content += processNode(child);
+      }
+      
+      // Check for specific element types
+      switch (node.nodeName.toUpperCase()) {
+        case 'DIV':
+          // Check if it's a checkbox
+          if (node.classList.contains('flex') && node.classList.contains('items-center')) {
           const input = node.querySelector('input[type="checkbox"]');
           const span = node.querySelector('span');
           if (input && span) {
             const isChecked = input.checked;
-            const text = span.textContent.trim();
-            return `- [${isChecked ? 'x' : ' '}] ${text}\n`;
+              // Process span content to preserve formatting within checkbox text
+              const spanContent = processNodeContent(span);
+              return `- [${isChecked ? 'x' : ' '}] ${spanContent}\n`;
+            }
           }
-          // Fallback: process as normal div
-          let content = '';
-          for (let child of node.childNodes) {
-            content += processNode(child);
-          }
-          return content;
-        }
-        // New line divs (created for spacing, e.g. with only '-\u00a0' or '- ')
-        const text = node.textContent.replace(/\u00a0/g, ' ').trim();
-        if (text === '-' || text === '') {
-          // Treat as a blank line
+          
+          // Special case for divs with only dash content
+          const divText = node.textContent.replace(/\u00a0/g, ' ').trim();
+          if (divText === '-' || divText === '') {
           return '\n';
         }
-        // Otherwise, process children
-        let content = '';
-        for (let child of node.childNodes) {
-          content += processNode(child);
-        }
-        return content;
-      }
-      if (node.tagName === 'INPUT' && node.type === 'checkbox') {
-        const text = node.nextSibling?.textContent || '';
+          
+          // General div handling - add newline after content if not already there
+          return content.endsWith('\n') ? content : content + '\n';
+          
+        case 'INPUT':
+          if (node.type === 'checkbox') {
         const isChecked = node.checked;
-        return `- [${isChecked ? 'x' : ' '}] ${text}`;
+            return `- [${isChecked ? 'x' : ' '}] `;
       }
-      if (node.tagName === 'HR') {
+          return '';
+          
+        case 'HR':
         return '\n---\n\n';
-      }
-      if (node.tagName === 'BR') {
+          
+        case 'BR':
         return '\n';
-      }
-      if (node.tagName === 'SPAN') {
-        return node.textContent;
-      }
-      if (node.tagName === 'P') {
-        let content = '';
-        for (let child of node.childNodes) {
-          content += processNode(child);
-        }
+          
+        case 'P':
         return content + '\n\n';
-      }
-      if (node.tagName === 'H3') {
-        let content = '';
-        for (let child of node.childNodes) {
-          content += processNode(child);
-        }
+          
+        case 'H3':
         return `\n## ${content}\n\n`;
+          
+        case 'B':
+        case 'STRONG':
+          // Bold
+          console.log("Found bold element:", node, "with content:", content);
+          return `**${content}**`;
+          
+        case 'I':
+        case 'EM':
+          // Italic
+          console.log("Found italic element:", node, "with content:", content);
+          return `*${content}*`;
+          
+        case 'U':
+          // Underline
+          console.log("Found underline element:", node, "with content:", content);
+          return `_${content}_`;
+          
+        case 'SPAN':
+          // Check if this span is part of a formatted text
+          if (node.parentNode && (
+              node.parentNode.nodeName === 'B' || 
+              node.parentNode.nodeName === 'STRONG' ||
+              node.parentNode.nodeName === 'I' || 
+              node.parentNode.nodeName === 'EM' ||
+              node.parentNode.nodeName === 'U'
+            )) {
+            // This is already being handled by the parent formatter
+            return content;
+          }
+          // Just return the content for regular spans
+          return content;
+          
+        default:
+          // Return content for any other elements
+          return content;
       }
     }
+    
+    // Default case
     return '';
+  }
+  
+  // Helper function to process content of nodes with possible nested formatting
+  function processNodeContent(node) {
+    // Create temp container
+    const tempContainer = document.createElement('div');
+    // Clone the node to avoid modifying the original
+    tempContainer.appendChild(node.cloneNode(true));
+    
+    // Process the cloned content
+    let result = '';
+    for (let child of tempContainer.firstChild.childNodes) {
+      result += processNode(child);
+    }
+    return result || node.textContent;
   }
 
   // Add a paste event listener to handle pasted content that might include separators
@@ -1315,7 +1606,164 @@ document.addEventListener('DOMContentLoaded', function() {
       if (content.includes('---')) {
         saveCurrentPage();
       }
+      
+      // Also check for and convert formatting indicators
+      applyRealTimeFormatting(noteBody);
     }, 0);
+  });
+
+  // Add real-time formatting conversion for Markdown-style indicators
+  function applyRealTimeFormatting(container) {
+    console.log("Checking for formatting indicators...");
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function(node) {
+          // Skip empty text nodes
+          if (!node.textContent.trim()) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          // Skip text nodes in formatting elements to avoid double formatting
+          if (node.parentNode.nodeName === 'STRONG' || 
+              node.parentNode.nodeName === 'B' ||
+              node.parentNode.nodeName === 'EM' ||
+              node.parentNode.nodeName === 'I' ||
+              node.parentNode.nodeName === 'U') {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+    
+    // Collect nodes to process to avoid modifying the DOM during traversal
+    const nodesToProcess = [];
+    let currentNode;
+    while (currentNode = walker.nextNode()) {
+      const text = currentNode.textContent;
+      // Check if this node contains any formatting indicators
+      if (text.includes('**') || text.includes('*') || text.includes('_')) {
+        nodesToProcess.push(currentNode);
+      }
+    }
+    
+    // Process collected nodes
+    nodesToProcess.forEach(processFormattingInNode);
+  }
+  
+  // Process formatting indicators in a single text node
+  function processFormattingInNode(node) {
+    let text = node.textContent;
+    
+    // Check for any formatting patterns
+    if ((text.includes('***_') && text.includes('_***')) ||
+        (text.includes('**_') && text.includes('_**')) ||
+        (text.includes('*_') && text.includes('_*')) ||
+        (text.includes('***') && text.includes('***')) ||
+        (text.includes('**') && text.includes('**')) || // Simple bold
+        (text.match(/\*[^*]+\*/) !== null) ||          // Simple italic
+        (text.match(/_[^_]+_/) !== null)) {            // Simple underline
+      
+      console.log("Found formatting indicators in:", text);
+      
+      // Create a temporary container
+      const tempContainer = document.createElement('div');
+      
+      // Process the text with formatting
+      let processedText = text;
+      
+      // Complex combined patterns (ordered by specificity)
+      // Bold + Italic + Underline: ***_text_***
+      processedText = processedText.replace(/\*\*\*_([^*_]+?)_\*\*\*/g, '<strong><em><u>$1</u></em></strong>');
+      
+      // Bold + Underline: **_text_**
+      processedText = processedText.replace(/\*\*_([^*_]+?)_\*\*/g, '<strong><u>$1</u></strong>');
+      
+      // Italic + Underline: *_text_*
+      processedText = processedText.replace(/\*_([^*_]+?)_\*/g, '<em><u>$1</u></em>');
+      
+      // Bold + Italic: ***text***
+      processedText = processedText.replace(/\*\*\*([^*]+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      
+      // Simple patterns
+      // Bold: **text**
+      processedText = processedText.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>');
+      
+      // Italic: *text*
+      processedText = processedText.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+      
+      // Underline: _text_
+      processedText = processedText.replace(/_([^_]+?)_/g, '<u>$1</u>');
+      
+      // Only replace if we actually found and processed formatting
+      if (processedText !== text) {
+        console.log("Converted to:", processedText);
+        tempContainer.innerHTML = processedText;
+        
+        // Replace the original node with the formatted content
+        const fragment = document.createDocumentFragment();
+        while (tempContainer.firstChild) {
+          fragment.appendChild(tempContainer.firstChild);
+        }
+        
+        node.parentNode.replaceChild(fragment, node);
+        
+        // Save the current page to preserve the formatting
+        saveCurrentPage();
+      }
+    }
+  }
+  
+  // Setup a MutationObserver to detect content changes and apply formatting
+  const formattingObserver = new MutationObserver((mutations) => {
+    let shouldProcess = false;
+    
+    // Check if any of the mutations involve text content
+    for (const mutation of mutations) {
+      if (mutation.type === 'characterData' || 
+          (mutation.type === 'childList' && 
+           (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0))) {
+        shouldProcess = true;
+        break;
+      }
+    }
+    
+    if (shouldProcess) {
+      // Wait a moment for any ongoing edits to complete
+      setTimeout(() => {
+        applyRealTimeFormatting(noteBody);
+      }, 100);
+    }
+  });
+  
+  // Start observing the note body for changes
+  formattingObserver.observe(noteBody, {
+    childList: true,
+    characterData: true,
+    subtree: true
+  });
+  
+  // Also process formatting after loading a page
+  const originalLoadPage = loadPage;
+  loadPage = function(idx) {
+    originalLoadPage(idx);
+    
+    // Wait for the page to render then check for formatting
+    setTimeout(() => {
+      applyRealTimeFormatting(noteBody);
+    }, 100);
+  };
+
+  // Add keyboard shortcut for forcing format conversion (Ctrl+Shift+F)
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+      e.preventDefault();
+      applyRealTimeFormatting(noteBody);
+      
+      // Show confirmation message
+      showSimpleNotification('Formatting indicators converted to rich text!');
+    }
   });
 
   // Search functionality
@@ -1363,7 +1811,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add search input event
     searchInput.addEventListener('input', function() {
       const searchTerm = this.value.trim();
-      
+
       if (searchTerm.length < 2) {
         searchCounter.classList.remove('has-results');
         searchNavContainer.classList.add('hidden');
@@ -1374,96 +1822,78 @@ document.addEventListener('DOMContentLoaded', function() {
         currentResultIndex = -1;
         return;
       }
-      
-      // If search term changed, reset index
-      if (searchTerm !== currentSearchTerm) {
-        currentResultIndex = -1;
-        currentSearchTerm = searchTerm;
-        
-        // Clear previous results
-        allSearchResults = [];
-        pageSearchResults = Array.from({length: NUM_PAGES}, () => []);
-        
-        // Build search results for all pages
-        for (let pageIndex = 0; pageIndex < NUM_PAGES; pageIndex++) {
-          const page = pages[pageIndex];
-          
-          // Create a temporary div to parse the HTML content
-          const tempDiv = document.createElement('div');
-          
-          // Set title
-          const titleElement = document.createElement('h2');
-          titleElement.textContent = page.title || '';
-          tempDiv.appendChild(titleElement);
-          
-          // Set body
-          const bodyElement = document.createElement('div');
-          bodyElement.innerHTML = page.body || '';
-          tempDiv.appendChild(bodyElement);
-          
-          // Find all text nodes in the temp div
-          const walker = document.createTreeWalker(
-            tempDiv,
-            NodeFilter.SHOW_TEXT,
-            {
-              acceptNode: function(node) {
-                // Skip empty text nodes or nodes in script or style elements
-                if (!node.textContent.trim() || 
-                    node.parentNode.tagName === 'SCRIPT' ||
-                    node.parentNode.tagName === 'STYLE') {
-                  return NodeFilter.FILTER_REJECT;
-                }
-                return NodeFilter.FILTER_ACCEPT;
+
+      // Reset results
+      currentResultIndex = -1;
+      currentSearchTerm = searchTerm;
+      allSearchResults = [];
+      pageSearchResults = Array.from({length: NUM_PAGES}, () => []);
+
+      // Search all pages
+      for (let pageIndex = 0; pageIndex < NUM_PAGES; pageIndex++) {
+        const page = pages[pageIndex];
+        // Create a temporary div to parse the HTML content
+        const tempDiv = document.createElement('div');
+        // Set title
+        const titleElement = document.createElement('h2');
+        titleElement.textContent = page.title || '';
+        tempDiv.appendChild(titleElement);
+        // Set body
+        const bodyElement = document.createElement('div');
+        bodyElement.innerHTML = page.body || '';
+        tempDiv.appendChild(bodyElement);
+
+        // Find all text nodes in the temp div
+        const walker = document.createTreeWalker(
+          tempDiv,
+          NodeFilter.SHOW_TEXT,
+          {
+            acceptNode: function(node) {
+              if (!node.textContent.trim() ||
+                  node.parentNode.tagName === 'SCRIPT' ||
+                  node.parentNode.tagName === 'STYLE') {
+                return NodeFilter.FILTER_REJECT;
               }
-            }
-          );
-          
-          // Collect matches from this page
-          const pageResults = [];
-          
-          let node;
-          while (node = walker.nextNode()) {
-            const nodeText = node.textContent;
-            const regex = new RegExp(escapeRegExp(searchTerm), 'gi');
-            let match;
-            
-            while ((match = regex.exec(nodeText)) !== null) {
-              // Get some context around the match
-              const start = Math.max(0, match.index - 30);
-              const end = Math.min(nodeText.length, match.index + match[0].length + 30);
-              const context = nodeText.substring(start, end);
-              
-              // Create a result object
-              pageResults.push({
-                pageIndex: pageIndex,
-                node: node,
-                matchIndex: match.index,
-                matchLength: match[0].length,
-                context: context,
-                contextStart: start,
-                nodeText: nodeText
-              });
+              return NodeFilter.FILTER_ACCEPT;
             }
           }
-          
-          // Store results for this page
-          pageSearchResults[pageIndex] = pageResults;
-          allSearchResults = allSearchResults.concat(pageResults);
+        );
+
+        // Collect matches from this page
+        const pageResults = [];
+        let node;
+        while (node = walker.nextNode()) {
+          const nodeText = node.textContent;
+          const regex = new RegExp(escapeRegExp(searchTerm), 'gi');
+          let match;
+          while ((match = regex.exec(nodeText)) !== null) {
+            const start = Math.max(0, match.index - 30);
+            const end = Math.min(nodeText.length, match.index + match[0].length + 30);
+            const context = nodeText.substring(start, end);
+            pageResults.push({
+              pageIndex: pageIndex,
+              node: node,
+              matchIndex: match.index,
+              matchLength: match[0].length,
+              context: context,
+              contextStart: start,
+              nodeText: nodeText
+            });
+          }
         }
-        
-        // If we're on current page and have results, find closest result to viewport
-        if (pageSearchResults[currentPage].length > 0) {
-          // We'll determine this after highlighting
-          currentResultIndex = -1;
-        }
+        pageSearchResults[pageIndex] = pageResults;
+        allSearchResults = allSearchResults.concat(pageResults);
       }
-      
-      // Update the current page results display
+
+      // Set currentResultIndex to first result if any
+      if (allSearchResults.length > 0) {
+        currentResultIndex = 0;
+      }
+
+      // Update highlights and navigation
       updatePageSearchResults();
-      
-      // Find closest visible result if we haven't selected one yet
-      if (currentResultIndex === -1 && allSearchResults.length > 0) {
-        findClosestVisibleResult();
+      if (currentResultIndex !== -1) {
+        highlightCurrentResult();
       }
     });
     
@@ -1472,17 +1902,82 @@ document.addEventListener('DOMContentLoaded', function() {
       // Only applicable for results on the current page
       const currentPageResults = pageSearchResults[currentPage];
       if (currentPageResults.length === 0) {
-        // If no results on current page, just use the first result overall
+        // If no results on current page, but results exist on other pages
         if (allSearchResults.length > 0) {
-          currentResultIndex = 0;
-          resultCounter.textContent = `1/${allSearchResults.length}`;
+          // Find the first page with results
+          let targetPage = -1;
+          let targetIndex = -1;
+          
+          for (let i = 0; i < pageSearchResults.length; i++) {
+            if (pageSearchResults[i].length > 0) {
+              targetPage = i;
+              // Find the global index of the first result on this page
+              for (let j = 0; j < allSearchResults.length; j++) {
+                if (allSearchResults[j].pageIndex === targetPage) {
+                  targetIndex = j;
+                  break;
+                }
+              }
+              break;
+            }
+          }
+          
+          if (targetIndex !== -1) {
+            // Set the current result to this index
+            currentResultIndex = targetIndex;
+            resultCounter.textContent = `1/${allSearchResults.length}`;
+            
+            // If we're not on the target page, prepare to navigate there
+            if (targetPage !== currentPage) {
+              console.log(`No results on current page (${currentPage}), found results on page ${targetPage}`);
+              
+              // If no results on current page, offer to navigate to page with results
+              const pageWithResults = targetPage;
+              
+              // Save current page first
+              saveCurrentPage();
+              
+              // Create a navigation prompt
+              const navPrompt = document.createElement('div');
+              navPrompt.className = 'search-navigation-prompt';
+              navPrompt.innerHTML = `
+                <div class="flex items-center justify-between gap-2 p-2 bg-blue-100 dark:bg-blue-900 rounded-md shadow-sm">
+                  <span>Results found on Page ${pageWithResults + 1}</span>
+                  <button class="go-to-results-btn px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Go to results</button>
+                </div>
+              `;
+              
+              // Find a good place to insert it
+              const searchContainer = document.querySelector('.search-container');
+              searchContainer.appendChild(navPrompt);
+              
+              // Add click handler to navigate
+              const goToBtn = navPrompt.querySelector('.go-to-results-btn');
+              goToBtn.addEventListener('click', () => {
+                // Navigate to the page with results
+                navigateSearchResult('next');
+                // Remove the prompt
+                navPrompt.remove();
+              });
+              
+              // Auto-remove after 5 seconds
+              setTimeout(() => {
+                if (navPrompt.parentNode) {
+                  navPrompt.remove();
+                }
+              }, 5000);
+            }
+          }
         }
         return;
       }
       
       // Get all highlights on the page
       const highlights = Array.from(document.querySelectorAll('.search-highlight'));
-      if (highlights.length === 0) return;
+      if (highlights.length === 0) {
+        console.log("No highlights found on page despite having results");
+        return;
+      }
       
       // Get viewport bounds
       const viewportTop = window.scrollY || document.documentElement.scrollTop;
@@ -1549,13 +2044,23 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Highlight matches on the current page
         if (currentPageResults > 0) {
+          // Calculate the correct baseIndex for the current page
+          let baseIndex = 0;
+          // Find the index of the first result for this page in the global results array
+          for (let i = 0; i < allSearchResults.length; i++) {
+            if (allSearchResults[i].pageIndex === currentPage) {
+              baseIndex = i;
+              break;
+            }
+          }
+          
           // Title
           const titleText = noteTitle.textContent;
           if (titleText && titleText.includes(currentSearchTerm)) {
-            noteTitle.innerHTML = highlightText(titleText, currentSearchTerm, 0);
+            noteTitle.innerHTML = highlightText(titleText, currentSearchTerm, baseIndex);
           }
           // Body
-          highlightInElements(noteBody, currentSearchTerm, 0);
+          highlightInElements(noteBody, currentSearchTerm, baseIndex);
           
           // Highlight the current result if it's on this page
           if (currentResultIndex >= 0) {
@@ -1595,6 +2100,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (currentResultIndex >= 0 && currentResultIndex < allSearchResults.length) {
         // Find the highlight with the correct data-result-index
         const highlight = document.querySelector('.search-highlight[data-result-index="' + currentResultIndex + '"]');
+        
         if (highlight) {
           highlight.classList.add('search-highlight-current');
           // Scroll into view visually only, never select
@@ -1607,6 +2113,43 @@ document.addEventListener('DOMContentLoaded', function() {
               behavior: 'smooth'
             });
           }, 50);
+        } else {
+          // If the highlight with exact index wasn't found, the indexes might be misaligned
+          // This can happen when switching between pages
+          console.log("Highlight not found for index", currentResultIndex, "- trying to find closest match");
+          
+          // Find all highlights on the page
+          const allHighlights = Array.from(document.querySelectorAll('.search-highlight'));
+          
+          if (allHighlights.length > 0) {
+            // Get the current result's page index
+            const targetPageIndex = allSearchResults[currentResultIndex].pageIndex;
+            
+            // If we're on the correct page, find the closest highlight
+            if (targetPageIndex === currentPage) {
+              // Get the first highlight and make it current
+              const firstHighlight = allHighlights[0];
+              firstHighlight.classList.add('search-highlight-current');
+              
+              // Update currentResultIndex to match this highlight's index
+              const newIndex = parseInt(firstHighlight.getAttribute('data-result-index'));
+              if (!isNaN(newIndex)) {
+                currentResultIndex = newIndex;
+                resultCounter.textContent = `${currentResultIndex + 1}/${allSearchResults.length}`;
+              }
+              
+              // Scroll to it
+              setTimeout(() => {
+                const rect = firstHighlight.getBoundingClientRect();
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                const targetY = rect.top + scrollTop - (window.innerHeight / 2) + (rect.height / 2);
+                window.scrollTo({
+                  top: targetY,
+                  behavior: 'smooth'
+                });
+              }, 50);
+            }
+          }
         }
       }
     }
@@ -1680,8 +2223,23 @@ document.addEventListener('DOMContentLoaded', function() {
               noteTitle.classList.remove('fade-out');
               noteBody.classList.remove('fade-out');
               
-              // Re-apply the search highlights to the new page
-              updatePageSearchResults();
+              // BUGFIX: Calculate baseIndex for proper highlighting on the new page
+              let baseIndex = 0;
+              // Find the index of the first result for this page in the global results array
+              for (let i = 0; i < allSearchResults.length; i++) {
+                if (allSearchResults[i].pageIndex === result.pageIndex) {
+                  baseIndex = i;
+                  break;
+                }
+              }
+              
+              // Apply highlights on the new page
+              clearHighlights();
+              const titleText = noteTitle.textContent;
+              if (titleText && titleText.includes(currentSearchTerm)) {
+                noteTitle.innerHTML = highlightText(titleText, currentSearchTerm, baseIndex);
+              }
+              const resultsOnPage = highlightInElements(noteBody, currentSearchTerm, baseIndex);
               
               // Highlight the current result
               setTimeout(() => {
@@ -1702,12 +2260,26 @@ document.addEventListener('DOMContentLoaded', function() {
     nextButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      
+      // Remove any existing navigation prompts when manually navigating
+      const existingPrompt = document.querySelector('.search-navigation-prompt');
+      if (existingPrompt) {
+        existingPrompt.remove();
+      }
+      
       navigateSearchResult('next');
     });
     
     prevButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      
+      // Remove any existing navigation prompts when manually navigating
+      const existingPrompt = document.querySelector('.search-navigation-prompt');
+      if (existingPrompt) {
+        existingPrompt.remove();
+      }
+      
       navigateSearchResult('prev');
     });
     
@@ -1889,7 +2461,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const highlightSpan = document.createElement('span');
         highlightSpan.className = 'search-highlight';
         highlightSpan.textContent = match[0];
-        highlightSpan.setAttribute('data-result-index', baseIndex + count);
+        
+        // Use a global result index based on the current page and match count
+        // This ensures highlights have the correct indexes when navigating between pages
+        const globalIndex = baseIndex + count;
+        highlightSpan.setAttribute('data-result-index', globalIndex.toString());
+        
         fragment.appendChild(highlightSpan);
         lastIndex = regex.lastIndex;
         count++;
@@ -1953,4 +2530,346 @@ document.addEventListener('DOMContentLoaded', function() {
       themeToggleBtn.querySelector('.theme-toggle-switch').classList.add('active');
     }
   }
+
+  // Text formatting toolbar functionality
+  const formatToolbar = document.getElementById('format-toolbar');
+  const formatBold = document.getElementById('format-bold');
+  const formatItalic = document.getElementById('format-italic');
+  const formatUnderline = document.getElementById('format-underline');
+  
+  if (noteBody && formatToolbar) {
+    let currentSelection = null;
+    let isToolbarVisible = false;
+    
+    // Function to position the toolbar above the selection
+    function positionToolbar() {
+      if (!currentSelection) return;
+      
+      const range = currentSelection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      
+      // Position the toolbar above the selection
+      const toolbarHeight = formatToolbar.offsetHeight;
+      const toolbarWidth = formatToolbar.offsetWidth;
+      
+      // Center the toolbar above the selection
+      const left = rect.left + window.scrollX + (rect.width / 2) - (toolbarWidth / 2);
+      const top = rect.top + window.scrollY - toolbarHeight - 10; // 10px offset
+      
+      // Ensure the toolbar stays within viewport bounds
+      const adjustedLeft = Math.max(10, Math.min(left, window.innerWidth - toolbarWidth - 10));
+      
+      formatToolbar.style.left = `${adjustedLeft}px`;
+      formatToolbar.style.top = `${top}px`;
+    }
+    
+    // Show toolbar when text is selected
+    noteBody.addEventListener('mouseup', function(e) {
+      const selection = window.getSelection();
+      
+      if (selection.toString().trim() !== '') {
+        // Save the selection
+        currentSelection = selection;
+        
+        // Position the toolbar
+        positionToolbar();
+        
+        // Check if selection has formatting and update button states
+        updateFormatButtonStates(selection);
+        
+        // Show the toolbar with animation
+        formatToolbar.classList.remove('hidden');
+        setTimeout(() => {
+          formatToolbar.classList.add('visible');
+          isToolbarVisible = true;
+        }, 10);
+      } else if (isToolbarVisible && !formatToolbar.contains(e.target)) {
+        // Hide toolbar if clicked outside and no text is selected
+        formatToolbar.classList.remove('visible');
+        isToolbarVisible = false;
+        setTimeout(() => {
+          formatToolbar.classList.add('hidden');
+        }, 150);
+      }
+    });
+    
+    // Function to update format button states based on current selection
+    function updateFormatButtonStates(selection) {
+      if (!selection.rangeCount) return;
+      
+      // Check for bold formatting
+      const hasBold = isFormatApplied(selection, ['B', 'STRONG']);
+      formatBold.classList.toggle('active', hasBold);
+      
+      // Check for italic formatting
+      const hasItalic = isFormatApplied(selection, ['I', 'EM']);
+      formatItalic.classList.toggle('active', hasItalic);
+      
+      // Check for underline formatting
+      const hasUnderline = isFormatApplied(selection, ['U']);
+      formatUnderline.classList.toggle('active', hasUnderline);
+    }
+    
+    // Hide toolbar when clicking elsewhere
+    document.addEventListener('mousedown', function(e) {
+      // Don't hide if clicking on the toolbar itself
+      if (isToolbarVisible && !formatToolbar.contains(e.target)) {
+        formatToolbar.classList.remove('visible');
+        isToolbarVisible = false;
+        setTimeout(() => {
+          formatToolbar.classList.add('hidden');
+        }, 150);
+      }
+    });
+    
+    // Format buttons functionality
+    formatBold.addEventListener('click', function() {
+      if (currentSelection) {
+        // Check if selection is already bold
+        const range = currentSelection.getRangeAt(0);
+        let isBold = false;
+        
+        // Check formatting without modifying the selection
+        isBold = isFormatApplied(currentSelection, ['B', 'STRONG']);
+        
+        // Toggle bold formatting
+        document.execCommand('bold', false, null);
+        formatBold.classList.toggle('active', !isBold);
+        
+        // Save changes
+        saveCurrentPage();
+      }
+    });
+    
+    formatItalic.addEventListener('click', function() {
+      if (currentSelection) {
+        // Check if selection is already italic
+        let isItalic = isFormatApplied(currentSelection, ['I', 'EM']);
+        
+        // Toggle italic formatting
+        document.execCommand('italic', false, null);
+        formatItalic.classList.toggle('active', !isItalic);
+        
+        // Save changes
+        saveCurrentPage();
+      }
+    });
+    
+    formatUnderline.addEventListener('click', function() {
+      if (currentSelection) {
+        // Check if selection is already underlined
+        let isUnderlined = isFormatApplied(currentSelection, ['U']);
+        
+        // Toggle underline formatting
+        document.execCommand('underline', false, null);
+        formatUnderline.classList.toggle('active', !isUnderlined);
+        
+        // Save changes
+        saveCurrentPage();
+      }
+    });
+    
+    // Helper function to check if format is applied to selection
+    function isFormatApplied(selection, tagNames) {
+      if (!selection.rangeCount) return false;
+      
+      // Get the common ancestor container for the selection
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      
+      // If the selection is within a single text node
+      if (container.nodeType === Node.TEXT_NODE) {
+        return hasParentWithTag(container, tagNames);
+      }
+      
+      // If selection spans multiple nodes, check if all nodes have the formatting
+      const selectedNodes = getSelectedNodes(selection);
+      
+      // Check if formatting is applied to all nodes
+      return selectedNodes.every(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return hasParentWithTag(node, tagNames);
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          return tagNames.includes(node.nodeName) || hasParentWithTag(node, tagNames) || 
+                 nodeContainsTag(node, tagNames);
+        }
+        return false;
+      });
+    }
+    
+    // Helper function to get all nodes within a selection
+    function getSelectedNodes(selection) {
+      if (!selection.rangeCount) return [];
+      
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      
+      // If selection is within a single text node, return just that node
+      if (range.startContainer === range.endContainer && 
+          range.startContainer.nodeType === Node.TEXT_NODE) {
+        return [range.startContainer];
+      }
+      
+      // Get all nodes within the range
+      const nodes = [];
+      const nodeIterator = document.createNodeIterator(
+        container,
+        NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+        {
+          acceptNode: function(node) {
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() === '') {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
+      );
+      
+      let currentNode;
+      while (currentNode = nodeIterator.nextNode()) {
+        if (nodeInRange(currentNode, range)) {
+          nodes.push(currentNode);
+        }
+      }
+      
+      return nodes;
+    }
+    
+    // Helper function to check if a node is within a range
+    function nodeInRange(node, range) {
+      const nodeRange = document.createRange();
+      try {
+        nodeRange.selectNode(node);
+      } catch (e) {
+        nodeRange.selectNodeContents(node);
+      }
+      
+      return range.compareBoundaryPoints(Range.START_TO_END, nodeRange) >= 0 &&
+             range.compareBoundaryPoints(Range.END_TO_START, nodeRange) <= 0;
+    }
+    
+    // Helper function to check if a node has a specific tag as ancestor
+    function hasParentWithTag(element, tagNames) {
+      let parent = element.parentNode;
+      while (parent && parent !== noteBody) {
+        if (tagNames.includes(parent.nodeName)) {
+          return true;
+        }
+        parent = parent.parentNode;
+      }
+      return false;
+    }
+    
+    // Helper function to check if a node contains a specific tag
+    function nodeContainsTag(node, tagNames) {
+      for (const tagName of tagNames) {
+        if (node.querySelector && node.querySelector(tagName.toLowerCase())) {
+          return true;
+        }
+      }
+      return false;
+    }
+    
+    // Function to update format button states based on current selection
+    function updateFormatButtonStates(selection) {
+      if (!selection.rangeCount) return;
+      
+      // Check for bold formatting
+      const hasBold = isFormatApplied(selection, ['B', 'STRONG']);
+      formatBold.classList.toggle('active', hasBold);
+      
+      // Check for italic formatting
+      const hasItalic = isFormatApplied(selection, ['I', 'EM']);
+      formatItalic.classList.toggle('active', hasItalic);
+      
+      // Check for underline formatting
+      const hasUnderline = isFormatApplied(selection, ['U']);
+      formatUnderline.classList.toggle('active', hasUnderline);
+    }
+    
+    // Also handle selection changes during keyboard navigation
+    noteBody.addEventListener('keyup', function(e) {
+      // Only check for arrow keys, shift key, etc.
+      if (e.key.includes('Arrow') || e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt') {
+        const selection = window.getSelection();
+        if (selection.toString().trim() !== '') {
+          currentSelection = selection;
+          positionToolbar();
+          
+          // Check if selection has formatting and update button states
+          updateFormatButtonStates(selection);
+          
+          formatToolbar.classList.remove('hidden');
+          setTimeout(() => {
+            formatToolbar.classList.add('visible');
+            isToolbarVisible = true;
+          }, 10);
+        } else if (isToolbarVisible) {
+          formatToolbar.classList.remove('visible');
+          isToolbarVisible = false;
+          setTimeout(() => {
+            formatToolbar.classList.add('hidden');
+          }, 150);
+        }
+      }
+    });
+  }
+
+  // Add a keyboard shortcut (Ctrl+F12) to check the HTML structure and verify formatting
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'F12') {
+      e.preventDefault();
+      
+      // Check the current page's HTML
+      const currentHTML = pages[currentPage].body;
+      console.log("Current page HTML:", currentHTML);
+      
+      // Look for formatting tags
+      const boldCount = (currentHTML.match(/<(b|strong)[^>]*>/gi) || []).length;
+      const italicCount = (currentHTML.match(/<(i|em)[^>]*>/gi) || []).length;
+      const underlineCount = (currentHTML.match(/<u[^>]*>/gi) || []).length;
+      
+      // Create a verification message
+      let message = "Formatting Check:\n";
+      message += `Bold tags: ${boldCount}\n`;
+      message += `Italic tags: ${italicCount}\n`;
+      message += `Underline tags: ${underlineCount}\n\n`;
+      
+      if (boldCount === 0 && italicCount === 0 && underlineCount === 0) {
+        message += "No formatting found in the current page.";
+      } else {
+        message += "Formatting detected! Try exporting to see it in Markdown.";
+      }
+      
+      // Show the message in an alert
+      alert(message);
+      
+      // Also show how the content would look as Markdown
+      const temp = document.createElement('div');
+      temp.innerHTML = currentHTML;
+      
+      let markdown = '';
+      for (let node of temp.childNodes) {
+        markdown += processNode(node);
+      }
+      
+      console.log("Preview as Markdown:", markdown);
+      
+      // Create a brief notification about checking the console
+      const notification = document.createElement('div');
+      notification.style.position = 'fixed';
+      notification.style.bottom = '20px';
+      notification.style.left = '50%';
+      notification.style.transform = 'translateX(-50%)';
+      notification.style.padding = '8px 16px';
+      notification.style.backgroundColor = '#3498db';
+      notification.style.color = 'white';
+      notification.style.borderRadius = '4px';
+      notification.style.zIndex = '1000';
+      notification.textContent = 'Check the browser console for Markdown preview';
+      
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 3000);
+    }
+  });
 }); 

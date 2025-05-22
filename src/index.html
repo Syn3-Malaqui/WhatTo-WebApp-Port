@@ -135,21 +135,40 @@
         });
 
         exportMarkdownBtn.addEventListener('click', () => {
+            // Save current page before exporting to ensure latest content
+            if (typeof saveCurrentPage === 'function') {
+                saveCurrentPage();
+            }
+            
             const title = noteTitle.textContent;
             const content = noteBody.innerHTML;
+            
+            console.log("Exporting content:", content);
             
             // Convert content to markdown while preserving structure
             let markdown = `# ${title}\n\n`;
             
             // Process each node to preserve structure
             const processNode = (node) => {
+                // For debugging
+                console.log("Processing node:", node.nodeType, node.nodeName, node);
+                
                 if (node.nodeType === Node.TEXT_NODE) {
                     return node.textContent;
                 }
                 
                 if (node.nodeType === Node.ELEMENT_NODE) {
+                    // Create a variable to store processed content
+                    let content = '';
+                    
+                    // Process all child nodes first
+                    for (let child of node.childNodes) {
+                        content += processNode(child);
+                    }
+                    
+                    // Now apply formatting based on the element type
                     if (node.tagName === 'DIV') {
-                        // Checkbox line (already handled above)
+                        // Checkbox line
                         if (node.classList.contains('flex') && node.classList.contains('items-center') && node.classList.contains('gap-2')) {
                             const input = node.querySelector('input[type="checkbox"]');
                             const span = node.querySelector('span');
@@ -158,62 +177,69 @@
                                 const text = span.textContent.trim();
                                 return `- [${isChecked ? 'x' : ' '}] ${text}\n`;
                             }
-                            // Fallback: process as normal div
-                            let content = '';
-                            for (let child of node.childNodes) {
-                                content += processNode(child);
-                            }
+                            // If not a proper checkbox, return the content
                             return content;
                         }
-                        // New line divs (created for spacing, e.g. with only '-\u00a0' or '- ')
+                        // New line divs
                         const text = node.textContent.replace(/\u00a0/g, ' ').trim();
                         if (text === '-' || text === '') {
-                            // Treat as a blank line
                             return '\n';
                         }
-                        // Otherwise, process children
-                        let content = '';
-                        for (let child of node.childNodes) {
-                            content += processNode(child);
-                        }
-                        return content;
+                        // If this is a div without special treatment, add a newline after its content
+                        return content + '\n';
                     }
-                    if (node.tagName === 'INPUT' && node.type === 'checkbox') {
+                    else if (node.tagName === 'INPUT' && node.type === 'checkbox') {
                         const text = node.nextSibling?.textContent || '';
                         const isChecked = node.checked;
                         return `- [${isChecked ? 'x' : ' '}] ${text}`;
                     }
-                    if (node.tagName === 'HR') {
+                    else if (node.tagName === 'HR') {
                         return '\n---\n\n';
                     }
-                    if (node.tagName === 'BR') {
+                    else if (node.tagName === 'BR') {
                         return '\n';
                     }
-                    if (node.tagName === 'SPAN') {
-                        return node.textContent;
+                    else if (node.tagName === 'SPAN') {
+                        return content; // Return processed child content
                     }
-                    if (node.tagName === 'P') {
-                        let content = '';
-                        for (let child of node.childNodes) {
-                            content += processNode(child);
-                        }
+                    else if (node.tagName === 'P') {
                         return content + '\n\n';
                     }
-                    if (node.tagName === 'H3') {
-                        let content = '';
-                        for (let child of node.childNodes) {
-                            content += processNode(child);
-                        }
+                    else if (node.tagName === 'H3') {
                         return `\n## ${content}\n\n`;
                     }
+                    // Handle text formatting elements
+                    else if (node.tagName === 'B' || node.tagName === 'STRONG') {
+                        return `**${content}**`;
+                    }
+                    else if (node.tagName === 'I' || node.tagName === 'EM') {
+                        return `*${content}*`;
+                    }
+                    else if (node.tagName === 'U') {
+                        return `<u>${content}</u>`;
+                    }
+                    // If it's any other element, just return the processed content
+                    else {
+                        return content;
+                    }
                 }
+                
+                // Default case
                 return '';
             };
 
             // Process all nodes in the note body
-            for (let node of noteBody.childNodes) {
-                markdown += processNode(node);
+            let markdownContent = '';
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            
+            // Process each child node of the temp div
+            for (let node of tempDiv.childNodes) {
+                markdownContent += processNode(node);
             }
+            
+            // Use the generated markdown
+            markdown += markdownContent;
 
             // Trim extra spaces and normalize line endings
             markdown = markdown
@@ -252,6 +278,20 @@
                 let inParagraph = false;
                 let isFirstLine = true;
                 
+                // Helper function to convert markdown formatting to HTML
+                const formatMarkdown = (text) => {
+                    // Convert bold: **text** or __text__ to <strong>text</strong>
+                    text = text.replace(/(\*\*|__)(.*?)\1/g, '<strong>$2</strong>');
+                    
+                    // Convert italic: *text* or _text_ to <em>text</em>
+                    text = text.replace(/(\*|_)(.*?)\1/g, '<em>$2</em>');
+                    
+                    // Keep HTML underline tags: <u>text</u>
+                    // No conversion needed as we use HTML for underline
+                    
+                    return text;
+                };
+                
                 lines.forEach((line, index) => {
                     // Trim the line but preserve empty lines
                     const trimmedLine = line.trim();
@@ -267,19 +307,19 @@
                         // Add heading
                         if (currentLine) {
                             const paragraph = document.createElement('p');
-                            paragraph.textContent = currentLine.trim();
+                            paragraph.innerHTML = formatMarkdown(currentLine.trim());
                             noteBody.appendChild(paragraph);
                             currentLine = '';
                         }
                         const heading = document.createElement('h3');
                         heading.className = 'text-xl font-semibold mt-4 mb-2';
-                        heading.textContent = trimmedLine.substring(3).trim();
+                        heading.innerHTML = formatMarkdown(trimmedLine.substring(3).trim());
                         noteBody.appendChild(heading);
                     } else if (trimmedLine.startsWith('- [')) {
                         // Convert markdown checkbox to HTML
                         if (currentLine) {
                             const paragraph = document.createElement('p');
-                            paragraph.textContent = currentLine.trim();
+                            paragraph.innerHTML = formatMarkdown(currentLine.trim());
                             noteBody.appendChild(paragraph);
                             currentLine = '';
                         }
@@ -294,7 +334,7 @@
                         checkbox.className = 'flex items-center gap-2 my-1';
                         checkbox.innerHTML = `
                             <input type="checkbox" class="checkbox checkbox-primary" ${checked ? 'checked' : ''}>
-                            <span class="ml-2">${text}</span>
+                            <span class="ml-2">${formatMarkdown(text)}</span>
                         `;
                         noteBody.appendChild(checkbox);
                         inParagraph = false;
@@ -321,7 +361,7 @@
                     } else if (currentLine) {
                         // Empty line after content - create paragraph
                         const paragraph = document.createElement('p');
-                        paragraph.textContent = currentLine.trim();
+                        paragraph.innerHTML = formatMarkdown(currentLine.trim());
                         noteBody.appendChild(paragraph);
                         currentLine = '';
                         inParagraph = false;
@@ -335,7 +375,7 @@
                 // Add any remaining content
                 if (currentLine) {
                     const paragraph = document.createElement('p');
-                    paragraph.textContent = currentLine.trim();
+                    paragraph.innerHTML = formatMarkdown(currentLine.trim());
                     noteBody.appendChild(paragraph);
                 }
 
@@ -345,5 +385,28 @@
             reader.readAsText(file);
         });
     </script>
+
+    <!-- Add this right before the closing body tag -->
+    <div id="format-toolbar" class="hidden">
+        <button id="format-bold" class="format-btn" title="Bold">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+                <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+            </svg>
+        </button>
+        <button id="format-italic" class="format-btn" title="Italic">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="4" x2="10" y2="4"></line>
+                <line x1="14" y1="20" x2="5" y2="20"></line>
+                <line x1="15" y1="4" x2="9" y2="20"></line>
+            </svg>
+        </button>
+        <button id="format-underline" class="format-btn" title="Underline">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path>
+                <line x1="4" y1="21" x2="20" y2="21"></line>
+            </svg>
+        </button>
+    </div>
 </body>
 </html> 
