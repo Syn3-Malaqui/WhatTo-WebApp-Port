@@ -930,12 +930,13 @@ document.addEventListener('DOMContentLoaded', function() {
       const titleHeight = titleArea.offsetHeight;
       const contentHeight = contentArea.scrollHeight;
       
-      // Check if the widget is empty (no title and no body content)
+      // Check widget content state more granularly
       const hasTitle = !noteTitle.classList.contains('hidden') && noteTitle.textContent.trim() !== '';
       const hasBodyContent = !noteBody.classList.contains('hidden') && noteBody.innerHTML.trim() !== '';
       const isTitleBtnVisible = !titleBtn.classList.contains('hidden');
       
       const isWidgetEmpty = !hasTitle && !hasBodyContent && isTitleBtnVisible;
+      const isTitleOnly = hasTitle && !hasBodyContent;
       
       // Add or remove empty class based on content state
       if (isWidgetEmpty) {
@@ -944,8 +945,15 @@ document.addEventListener('DOMContentLoaded', function() {
         container.classList.remove('empty');
       }
       
-      // Set a minimum height for the container - much smaller when empty
-      const minHeight = isWidgetEmpty ? 80 : 250;
+      // Set minimum height based on content state
+      let minHeight;
+      if (isWidgetEmpty) {
+        minHeight = 80;  // Very compact when completely empty
+      } else if (isTitleOnly) {
+        minHeight = 120; // Compact when only title, no body content
+      } else {
+        minHeight = 250; // Full size when there's body content
+      }
       
       // Set the container height based on content with a minimum
       const naturalHeight = titleHeight + contentHeight + (isWidgetEmpty ? 0 : 12);
