@@ -10,19 +10,19 @@
       "use": "@vercel/static"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/src/$1"
+      "source": "/",
+      "destination": "/src/index.html"
     },
     {
-      "src": "/",
-      "dest": "/src/index.html"
+      "source": "/(.*)",
+      "destination": "/src/$1"
     }
   ],
   "headers": [
     {
-      "source": "/src/(.*)",
+      "source": "/src/(.*\\.(js|css|svg|png|jpg|jpeg|gif|ico))",
       "headers": [
         {
           "key": "Cache-Control",
