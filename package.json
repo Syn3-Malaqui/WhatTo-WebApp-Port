@@ -1,0 +1,32 @@
+{
+  "name": "whatto-webapp",
+  "version": "1.0.0",
+  "description": "WhatTo - A beautiful note-taking web application with multi-page support, markdown export/import, and rich text formatting",
+  "main": "src/index.html",
+  "scripts": {
+    "dev": "npx serve src",
+    "build": "echo 'No build step required for static site'",
+    "start": "npx serve src"
+  },
+  "keywords": [
+    "notes",
+    "webapp",
+    "markdown",
+    "productivity",
+    "note-taking",
+    "static-site"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "homepage": "https://github.com/yourusername/WhatTo-WebApp-Port",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/WhatTo-WebApp-Port.git"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+} 

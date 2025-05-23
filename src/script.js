@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
       htmlElement.classList.add('dark');
       if (headerLogo) {
-        headerLogo.src = 'assets/header3.svg';
+        headerLogo.src = 'assets/Header3.svg';
       }
       
       // Update theme toggle switch state
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
       htmlElement.classList.remove('dark');
       if (headerLogo) {
-        headerLogo.src = 'assets/header.svg';
+        headerLogo.src = 'assets/Header.svg';
       }
       
       // Update theme toggle switch state
