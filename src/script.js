@@ -952,7 +952,8 @@ document.addEventListener('DOMContentLoaded', function() {
       } else if (isTitleOnly) {
         minHeight = 120; // Compact when only title, no body content
       } else {
-        minHeight = 250; // Full size when there's body content
+        // When there's body content, use a small minimum and let it scale naturally
+        minHeight = 120; // Small minimum to accommodate title + some content
       }
       
       // Set the container height based on content with a minimum
