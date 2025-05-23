@@ -1,0 +1,627 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+
+html, body {
+  font-family: 'Poppins', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#note-title, #title-input {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+}
+
+#note-body {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 400;
+  resize: none;
+  overflow: hidden;
+  /* Hide scrollbar for Webkit browsers */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
+}
+#note-body::-webkit-scrollbar {
+  display: none;
+}
+
+.separator {
+  display: inline-block;
+  width: 100%;
+  height: 1px;
+  background-color: #e5e7eb;
+  margin: 0.5rem 0;
+  position: relative;
+}
+
+#note-body:focus {
+  outline: none;
+}
+
+.app-container {
+  width: 400px;
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+              height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+  will-change: width, height, transform;
+}
+
+.content-area {
+  flex: 1;
+  padding: 0 1.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.3s ease, transform 0.3s ease, height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+  will-change: opacity, transform, height, padding;
+}
+
+/* Empty widget state */
+.app-container.empty .content-area {
+  padding: 0;
+  flex: none;
+  height: 0;
+}
+
+/* Fade transition for page content */
+#note-title, #note-body, #note-title-area {
+  transition: opacity 0.3s ease, transform 0.25s ease;
+  will-change: opacity, transform;
+}
+
+.fade-out {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.fade-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* For when content is hidden but we want to keep layout space */
+.invisible {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.drag-over {
+  border: 2px dashed #3b82f6 !important;
+  background-color: rgba(59, 130, 246, 0.05) !important;
+}
+
+#settings-dropdown {
+  opacity: 0;
+  transform: scale(0.95) translateY(-10px);
+  transition: all 0.2s ease-out, background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  pointer-events: none;
+  background-color: white;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+#settings-dropdown.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Add dark mode styles for settings dropdown */
+.dark #settings-dropdown {
+  background-color: #1f2937;
+  color: #f3f4f6;
+  border-color: #374151;
+}
+
+#note-title-area {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 1rem 1.5rem 0.5rem;
+  overflow: hidden;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.3s ease;
+  will-change: transform, opacity, padding;
+}
+
+/* Adjust title area padding when widget is empty */
+.app-container.empty #note-title-area {
+  padding: 1.3rem 1.5rem 0.15rem;
+}
+
+/* Adjust title button appearance when widget is empty */
+.app-container.empty #title-btn {
+  font-size: 1.25rem;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+#note-title-area > .flex-1 {
+  min-width: 0;
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#note-title, #title-btn, #title-input {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#page-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: 0.75rem;
+  flex-shrink: 0;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  will-change: transform, opacity;
+}
+
+.page-btn {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: #d1d5db;
+  border: 2px solid #9ca3af;
+  cursor: pointer;
+  transition: border 0.3s ease, background 0.3s ease, transform 0.2s ease;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.page-btn:hover {
+  background: #93c5fd; /* Light blue on hover */
+  border-color: #3b82f6;
+  transform: scale(1.1);
+}
+
+.page-btn.active, .page-btn:focus {
+  background: #60a5fa;
+  border-color: #2563eb;
+  animation: pulse 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 5px rgba(37, 99, 235, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+}
+
+/* Search bar styles */
+.search-bar {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+}
+
+/* Search highlights */
+.search-highlight {
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 2px;
+  padding: 0 2px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Current search highlight */
+.search-highlight-current {
+  background-color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.5);
+  position: relative;
+  animation: pulse-highlight 0.5s ease-out;
+}
+
+@keyframes pulse-highlight {
+  0% {
+    background-color: #3b82f6;
+  }
+  50% {
+    background-color: #1e40af;
+  }
+  100% {
+    background-color: #1d4ed8;
+  }
+}
+
+/* Search count display */
+.search-counter {
+  position: absolute;
+  right: -8px;
+  top: -8px;
+  background-color: #2563eb;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  height: 18px;
+  min-width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0 5px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.search-counter.has-results {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Search navigation controls */
+.search-nav {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  background-color: white;
+  border-radius: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  padding: 3px 6px;
+  z-index: 10;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.search-nav.hidden {
+  opacity: 0;
+  transform: translateY(-5px);
+  pointer-events: none;
+}
+
+.search-nav-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background-color: #f3f4f6;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.search-nav-btn:hover {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.search-nav-btn:active {
+  background-color: #d1d5db;
+  transform: scale(0.95);
+}
+
+.search-result-counter {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+/* Search navigation prompt styles */
+.search-navigation-prompt {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  width: 240px;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  z-index: 50;
+  font-size: 12px;
+  opacity: 0;
+  transform: translateY(-8px);
+  animation: fade-in-down 0.3s ease forwards;
+}
+
+@keyframes fade-in-down {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-navigation-prompt span {
+  font-weight: 500;
+}
+
+.search-navigation-prompt .go-to-results-btn {
+  transition: background-color 0.2s ease;
+  font-weight: 500;
+}
+
+.dark .search-navigation-prompt {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+}
+
+.dark .search-navigation-prompt span {
+  color: #e5e7eb;
+}
+
+.dark .search-navigation-prompt .go-to-results-btn {
+  background-color: #3b82f6;
+}
+
+.dark .search-navigation-prompt .go-to-results-btn:hover {
+  background-color: #2563eb;
+}
+
+/* Theme toggle switch styles */
+.theme-toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: #d1d5db;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-toggle-switch.active {
+  background-color: #3b82f6;
+}
+
+.theme-toggle-slider {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-toggle-switch.active .theme-toggle-slider {
+  transform: translateX(20px);
+}
+
+/* Dark theme styles */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+.dark .app-container {
+  background-color: #111827;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+}
+
+.dark #title-btn {
+  color: #9ca3af;
+}
+
+.dark #title-btn:hover {
+  color: #d1d5db;
+}
+
+.dark .page-btn {
+  background: #4b5563;
+  border-color: #6b7280;
+}
+
+.dark .page-btn:hover {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.dark .page-btn.active {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.dark .separator {
+  background-color: #374151;
+}
+
+.dark .search-bar {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+.dark .search-bar:focus {
+  border-color: #f3f4f6;
+  box-shadow: 0 0 0 2px rgba(229, 231, 235, 0.3);
+}
+
+.dark .search-nav {
+  background-color: #1f2937;
+  border-color: #374151;
+}
+
+.dark .search-nav-btn {
+  background-color: #374151;
+  color: #d1d5db;
+}
+
+.dark .search-nav-btn:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.dark .search-result-counter {
+  color: #ffffff;
+}
+
+.dark .search-highlight {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+.dark .search-highlight-current {
+    background-color: #ffffff;
+    color: #111827;
+}
+
+.dark .search-counter {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.dark .theme-toggle-switch.active {
+  background-color: #3b82f6;
+}
+
+/* Dark theme checkbox overrides - Attempt 4: More comprehensive for checkbox-primary */
+.dark .checkbox-primary {
+  background-color: transparent !important;
+  border-color: #ffffff !important; /* White border for unchecked box */
+  --p: transparent !important; /* Neutralize DaisyUI primary color variable */
+  --pf: transparent !important; /* Neutralize DaisyUI primary-focus color variable */
+  --chkbg: transparent !important; /* Ensure checkbox background var is transparent */
+  --chkfg: #ffffff !important; /* Checkmark color for unchecked (usually not visible but set for consistency) */
+  color: #ffffff !important; /* Text color / SVG fill for unchecked (usually not visible) */
+}
+
+.dark .checkbox-primary:checked {
+  background-color: #ffffff !important; /* White background for the checked box */
+  border-color: #000000 !important;     /* Black border around the white box for contrast */
+  color: #000000 !important;           /* Black color for the checkmark SVG/font */
+  --p: #ffffff !important;  /* Override DaisyUI primary to affect background if it uses this */
+  --pc: #000000 !important; /* Override DaisyUI primary-content for checkmark color */
+  --chkbg: #ffffff !important; /* Explicitly set checkbox background variable to white */
+  --chkfg: #000000 !important; /* Explicitly set checkmark foreground variable to black */
+}
+
+/* Add smooth transitions for dropdown elements */
+#settings-dropdown .dropdown-item,
+#settings-dropdown button,
+#settings-dropdown a {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Style for dropdown items in light mode */
+#settings-dropdown .dropdown-item:hover {
+  background-color: #f3f4f6;
+}
+
+/* Style for dropdown items in dark mode */
+.dark #settings-dropdown .dropdown-item:hover {
+  background-color: #374151;
+}
+
+/* Add specific transitions for the dropdown and all children during theme changes */
+.theme-transitioning #settings-dropdown,
+.theme-transitioning #settings-dropdown *,
+#settings-dropdown,
+#settings-dropdown * {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+/* Additional specific transitions for the dropdown elements */
+#settings-dropdown button,
+#settings-dropdown .dropdown-item,
+#settings-dropdown a,
+#settings-dropdown div {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+}
+
+/* Format toolbar styles */
+#format-toolbar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 6px;
+  z-index: 1000;
+  opacity: 0;
+  transform: scale(0.95) translateY(5px);
+  transition: all 0.15s ease-out;
+  pointer-events: none;
+}
+
+#format-toolbar.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+.format-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background-color: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.format-btn:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.format-btn:active {
+  background-color: #e5e7eb;
+  transform: scale(0.95);
+}
+
+.format-btn.active {
+  background-color: #e5e7eb;
+  color: #2563eb;
+}
+
+/* Dark mode styles for format toolbar */
+.dark #format-toolbar {
+  background-color: #1f2937;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.dark .format-btn {
+  color: #d1d5db;
+}
+
+.dark .format-btn:hover {
+  background-color: #374151;
+  color: #f9fafb;
+}
+
+.dark .format-btn:active {
+  background-color: #4b5563;
+}
+
+.dark .format-btn.active {
+  background-color: #374151;
+  color: #60a5fa;
+} 
