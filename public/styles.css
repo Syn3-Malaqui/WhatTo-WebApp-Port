@@ -624,4 +624,69 @@ html, body {
 .dark .format-btn.active {
   background-color: #374151;
   color: #60a5fa;
+}
+
+/* Mobile responsive design - Scale widget down by 20% */
+@media (max-width: 768px) {
+  .app-container {
+    width: 320px; /* 20% smaller than 400px */
+    transform: scale(0.95); /* Additional subtle scaling for better mobile experience */
+  }
+  
+  /* Adjust content area padding for mobile */
+  .content-area {
+    padding: 0 1.2rem 0.6rem; /* Slightly reduced padding */
+  }
+  
+  /* Adjust title area padding for mobile */
+  #note-title-area {
+    padding: 0.8rem 1.2rem 0.4rem; /* Reduced padding */
+  }
+  
+  /* Adjust empty state padding for mobile */
+  .app-container.empty #note-title-area {
+    padding: 1rem 1.2rem 0.1rem;
+  }
+  
+  /* Adjust font sizes slightly for mobile */
+  #note-title, #title-btn, #title-input {
+    font-size: 0.95em; /* Slightly smaller text */
+  }
+  
+  /* Make page buttons slightly smaller on mobile */
+  .page-btn {
+    width: 0.65rem;
+    height: 0.65rem;
+  }
+  
+  /* Adjust search bar for mobile */
+  .search-bar {
+    font-size: 0.9rem;
+  }
+  
+  /* Scale down format toolbar for mobile */
+  #format-toolbar {
+    transform: scale(0.9);
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .app-container {
+    width: 280px; /* Even smaller for very small screens */
+    transform: scale(0.9);
+  }
+  
+  /* Further reduce padding on very small screens */
+  .content-area {
+    padding: 0 1rem 0.5rem;
+  }
+  
+  #note-title-area {
+    padding: 0.7rem 1rem 0.3rem;
+  }
+  
+  .app-container.empty #note-title-area {
+    padding: 0.9rem 1rem 0.1rem;
+  }
 } 
