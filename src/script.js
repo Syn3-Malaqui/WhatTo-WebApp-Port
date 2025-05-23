@@ -749,6 +749,11 @@ document.addEventListener('DOMContentLoaded', function() {
             currentPage = 0;
             loadPage(0);
             updatePageBtns();
+            
+            // Ensure container adjusts to imported content with a slight delay for rendering
+            setTimeout(() => {
+              adjustContainerSize();
+            }, 100);
           };
           reader.readAsText(file);
         }
@@ -813,29 +818,32 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clear all localStorage data
         localStorage.clear();
         
-        // Immediately clear the current page contents
-        noteTitle.textContent = '';
-        noteTitle.classList.add('hidden');
-        titleBtn.classList.remove('hidden');
-        noteBody.innerHTML = '';
-        noteBody.classList.add('hidden');
-        
-        // Reset pages array to empty state
+        // Reset pages array to empty state first
         for (let i = 0; i < NUM_PAGES; i++) {
           pages[i] = { title: '', body: '' };
         }
         
-        // Update UI to reflect cleared state
+        // Reset to first page
         currentPage = 0;
+        
+        // Clear the current page contents and show title button
+        noteTitle.textContent = '';
+        noteTitle.classList.add('hidden');
+        titleBtn.classList.remove('hidden');
+        titleInput.classList.add('hidden');
+        noteBody.innerHTML = '';
+        noteBody.classList.add('hidden');
+        
+        // Update page buttons
         updatePageBtns();
+        
+        // Ensure proper container sizing for empty state
+        setTimeout(() => {
+          adjustContainerSize();
+        }, 50);
         
         // Show notification using the existing function
         showSimpleNotification('Cache cleared successfully!');
-        
-        // Reload the page after a short delay
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
       }
     });
   }
@@ -923,10 +931,11 @@ document.addEventListener('DOMContentLoaded', function() {
       const contentHeight = contentArea.scrollHeight;
       
       // Check if the widget is empty (no title and no body content)
-      const isWidgetEmpty = (
-        (noteTitle.classList.contains('hidden') || noteTitle.textContent.trim() === '') && 
-        (noteBody.classList.contains('hidden') || noteBody.innerHTML.trim() === '')
-      );
+      const hasTitle = !noteTitle.classList.contains('hidden') && noteTitle.textContent.trim() !== '';
+      const hasBodyContent = !noteBody.classList.contains('hidden') && noteBody.innerHTML.trim() !== '';
+      const isTitleBtnVisible = !titleBtn.classList.contains('hidden');
+      
+      const isWidgetEmpty = !hasTitle && !hasBodyContent && isTitleBtnVisible;
       
       // Add or remove empty class based on content state
       if (isWidgetEmpty) {
@@ -935,8 +944,8 @@ document.addEventListener('DOMContentLoaded', function() {
         container.classList.remove('empty');
       }
       
-      // Set a minimum height for the container - smaller when empty
-      const minHeight = isWidgetEmpty ? 140 : 250;
+      // Set a minimum height for the container - much smaller when empty
+      const minHeight = isWidgetEmpty ? 80 : 250;
       
       // Set the container height based on content with a minimum
       const naturalHeight = titleHeight + contentHeight + (isWidgetEmpty ? 0 : 12);
@@ -1543,6 +1552,12 @@ document.addEventListener('DOMContentLoaded', function() {
         currentPage = 0;
         loadPage(0);
         updatePageBtns();
+        
+        // Ensure container adjusts to imported content with a slight delay for rendering
+        setTimeout(() => {
+          adjustContainerSize();
+        }, 100);
+        
         // Reset file input
         e.target.value = '';
       };

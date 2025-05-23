@@ -62,7 +62,9 @@ html, body {
 
 /* Empty widget state */
 .app-container.empty .content-area {
-  padding-bottom: 0;
+  padding: 0;
+  flex: none;
+  height: 0;
 }
 
 /* Fade transition for page content */
@@ -128,12 +130,12 @@ html, body {
 
 /* Adjust title area padding when widget is empty */
 .app-container.empty #note-title-area {
-  padding: 0.75rem 1.5rem 0.25rem;
+  padding: 1.3rem 1.5rem 0.15rem;
 }
 
 /* Adjust title button appearance when widget is empty */
 .app-container.empty #title-btn {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   padding-top: 0;
   padding-bottom: 0;
 }
